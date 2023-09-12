@@ -3,6 +3,7 @@ package bot
 import (
 	"log"
 	"math/rand"
+	"time"
 
 	swagger "github.com/gdg-garage/dungeons-and-trolls-go-client"
 )
@@ -15,12 +16,12 @@ func Run(state swagger.DungeonsandtrollsGameState) *swagger.DungeonsandtrollsCom
 	log.Println("Character.Equip:", state.Character.Equip)
 
 	// log.Println("Items in shop:")
-	shop := state.Items
+	shop := state.ShopItems
 	for _, item := range shop {
-		if item.BuyPrice <= state.Character.Money {
+		if item.Price <= state.Character.Money {
 			// log.Println("Can afford:", item.Name)
 			// log.Printf("\t\tItem slot: %v, Price: %v\n", *item.Slot, item.BuyPrice)
-			if *item.Slot == swagger.MAIN_HAND_DungeonsandtrollsItemType {
+			if *item.Slot == swagger.MAIN_HAND_DungeonsandtrollsItemType && false {
 				log.Println("Found main hand item:", item.Name)
 			}
 		}
@@ -52,9 +53,12 @@ func Run(state swagger.DungeonsandtrollsGameState) *swagger.DungeonsandtrollsCom
 	// stairsPosition.Level = level
 	// log.Printf("Chosen fixed stairs coords: %+v\n", stairsPosition)
 
-	random := rand.Intn(4)
-	if random == 0 {
-		log.Println("Pickign a random yell ...")
+	// Add seed
+	rand.Seed(time.Now().UnixNano())
+	random := rand.Intn(3)
+	log.Println("Random:", random)
+	if random <= 1 {
+		log.Println("Picking a random yell ...")
 		randomYell := rand.Intn(8)
 		var yells []string = []string{
 			"Anybody home?",
