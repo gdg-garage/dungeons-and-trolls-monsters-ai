@@ -27,24 +27,9 @@ func Run(state swagger.DungeonsandtrollsGameState) *swagger.DungeonsandtrollsCom
 		}
 	}
 
-	level := state.CurrentPosition.Level
-	log.Println("Current level:", level)
+	objects := getObjectsByCategory(&state)
 
-	currentMap := state.Map_.Levels[level]
-	log.Println("Current map level:", currentMap.Level)
-	var stairsPosition *swagger.DungeonsandtrollsCoordinates
-
-	//log.Printf("Current map: %+v\n", currentMap)
-
-	for _, object := range currentMap.Objects {
-		if object.IsStairs {
-			log.Printf("Found stairs: %+v\n", object)
-			log.Printf("Stairs coords: %+v\n", object.Position)
-			stairsPosition = object.Position
-		}
-	}
-
-	if stairsPosition == nil {
+	if objects.Stairs == nil {
 		log.Println("Can't find stairs")
 		return nil
 	}
@@ -82,8 +67,40 @@ func Run(state swagger.DungeonsandtrollsGameState) *swagger.DungeonsandtrollsCom
 
 	log.Println("Moving towards stairs ...")
 	return &swagger.DungeonsandtrollsCommandsBatch{
-		Move: stairsPosition,
+		Move: objects.Stairs.Position,
 	}
 	// log.Printf("Map: %+v\n", state.Map_)
 	// stairsCoords := state.
+}
+
+func getObjectsByCategory(state *swagger.DungeonsandtrollsGameState) objectsByCategory {
+	level := state.CurrentPosition.Level
+	currentMap := state.Map_.Levels[level]
+	objects := objectsByCategory{}
+	for _, object := range currentMap.Objects {
+		if object.IsStairs {
+			log.Printf("Found stairs: %+v\n", object)
+			log.Printf("Stairs coords: %+v\n", object.Position)
+			objects.Stairs = &object
+		}
+		if object.IsSpawn {
+			objects.Spawn = &object
+		}
+		if object.Players != nil {
+			objects.Players = append(objects.Players, object)
+		}
+		if object.Monsters != nil {
+			objects.Monsters = append(objects.Monsters, object)
+		}
+	}
+	return objects
+}
+
+type objectsByCategory struct {
+	Spawn    *swagger.DungeonsandtrollsMapObjects
+	Stairs   *swagger.DungeonsandtrollsMapObjects
+	Players  []swagger.DungeonsandtrollsMapObjects
+	Monsters []swagger.DungeonsandtrollsMapObjects
+	// TODO: split into monster factions
+	// Add portals, effects, etc.
 }
