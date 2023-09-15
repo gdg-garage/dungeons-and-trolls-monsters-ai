@@ -15,28 +15,43 @@ func Run(state swagger.DungeonsandtrollsGameState) *swagger.DungeonsandtrollsCom
 	log.Println("CurrentPosition:", state.CurrentPosition)
 	log.Println("Character.Equip:", state.Character.Equip)
 
-	// log.Println("Items in shop:")
-	shop := state.ShopItems
-	for _, item := range shop {
-		if item.Price <= state.Character.Money {
-			// log.Println("Can afford:", item.Name)
-			// log.Printf("\t\tItem slot: %v, Price: %v\n", *item.Slot, item.BuyPrice)
-			if *item.Slot == swagger.MAIN_HAND_DungeonsandtrollsItemType && false {
-				log.Println("Found main hand item:", item.Name)
+	var mainHandItem *swagger.DungeonsandtrollsItem
+	for _, item := range state.Character.Equip {
+		if *item.Slot == swagger.MAIN_HAND_DungeonsandtrollsItemType {
+			mainHandItem = &item
+			break
+		}
+	}
+
+	if mainHandItem == nil {
+		log.Println("Looking for items to buy ...")
+		item := shop(&state)
+		if item != nil {
+			return &swagger.DungeonsandtrollsCommandsBatch{
+				Buy: &swagger.DungeonsandtrollsIdentifiers{Ids: []string{item.Id}},
 			}
 		}
+		log.Println("ERROR: Found no item to buy!")
 	}
 
 	objects := getObjectsByCategory(&state)
 
-	if objects.Stairs == nil {
-		log.Println("Can't find stairs")
-		return nil
+	if objects.Monsters != nil {
+		log.Println("Let's fight!")
+		// TODO: Use Skill if monster in range
+		return &swagger.DungeonsandtrollsCommandsBatch{
+			Move: objects.Monsters[0].Position,
+		}
 	}
 
-	// Fix stairs level
-	// stairsPosition.Level = level
-	// log.Printf("Chosen fixed stairs coords: %+v\n", stairsPosition)
+	if objects.Stairs == nil {
+		log.Println("Can't find stairs")
+		return &swagger.DungeonsandtrollsCommandsBatch{
+			Yell: &swagger.DungeonsandtrollsMessage{
+				Text: "Where are the stairs? I can't find them!",
+			},
+		}
+	}
 
 	// Add seed
 	rand.Seed(time.Now().UnixNano())
@@ -71,6 +86,19 @@ func Run(state swagger.DungeonsandtrollsGameState) *swagger.DungeonsandtrollsCom
 	}
 	// log.Printf("Map: %+v\n", state.Map_)
 	// stairsCoords := state.
+}
+
+func shop(state *swagger.DungeonsandtrollsGameState) *swagger.DungeonsandtrollsItem {
+	shop := state.ShopItems
+	for _, item := range shop {
+		if item.Price <= state.Character.Money {
+			if *item.Slot == swagger.MAIN_HAND_DungeonsandtrollsItemType {
+				log.Println("Chosen item:", item.Name)
+				return &item
+			}
+		}
+	}
+	return nil
 }
 
 func getObjectsByCategory(state *swagger.DungeonsandtrollsGameState) objectsByCategory {
