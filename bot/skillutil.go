@@ -122,12 +122,12 @@ func areAttributeRequirementMet(myAttrs swagger.DungeonsandtrollsAttributes, att
 	return false
 }
 
-func useSkill(skill swagger.DungeonsandtrollsSkill, targetObjects swagger.DungeonsandtrollsMapObjects, monsterIdx int) *swagger.DungeonsandtrollsCommandsBatch {
+func useSkill(skill swagger.DungeonsandtrollsSkill, target MapObject) *swagger.DungeonsandtrollsCommandsBatch {
 	if *skill.Target == swagger.CHARACTER_SkillTarget {
 		return &swagger.DungeonsandtrollsCommandsBatch{
 			Skill: &swagger.DungeonsandtrollsSkillUse{
 				SkillId:  skill.Id,
-				TargetId: targetObjects.Monsters[monsterIdx].Id,
+				TargetId: target.GetId(),
 			},
 		}
 	}
@@ -135,7 +135,7 @@ func useSkill(skill swagger.DungeonsandtrollsSkill, targetObjects swagger.Dungeo
 		return &swagger.DungeonsandtrollsCommandsBatch{
 			Skill: &swagger.DungeonsandtrollsSkillUse{
 				SkillId:  skill.Id,
-				Location: targetObjects.Position,
+				Location: target.MapObjects.Position,
 			},
 		}
 	}

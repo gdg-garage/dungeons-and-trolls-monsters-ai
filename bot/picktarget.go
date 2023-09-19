@@ -2,26 +2,53 @@ package bot
 
 import (
 	"math/rand"
-
-	swagger "github.com/gdg-garage/dungeons-and-trolls-go-client"
 )
 
-func filterOutFriendly(objects *objectsByCategory) []swagger.DungeonsandtrollsMapObjects {
-	// TODO: pick Players plus other monsters based on factions
-	return objects.Monsters
+// Enemies
+
+func (b *Bot) getEnemies(mapObjects *MapObjectsByCategory) []MapObject {
+	enemies := []MapObject{}
+	for _, mapObject := range mapObjects.Players {
+		if !b.IsFriendly(mapObject) {
+			enemies = append(enemies, mapObject)
+		}
+	}
+	for _, mapObject := range mapObjects.Monsters {
+		if !b.IsFriendly(mapObject) {
+			enemies = append(enemies, mapObject)
+		}
+	}
+	return enemies
 }
 
-func pickTarget(objects *objectsByCategory) *swagger.DungeonsandtrollsMapObjects {
-	return pickClosestTarget(filterOutFriendly(objects))
+// Friendly
+
+func (b *Bot) getFriendly(objects *MapObjectsByCategory) []MapObject {
+	friends := []MapObject{}
+	for _, mapObject := range objects.Players {
+		if b.IsFriendly(mapObject) {
+			friends = append(friends, mapObject)
+		}
+	}
+	for _, mapObject := range objects.Monsters {
+		if b.IsFriendly(mapObject) {
+			friends = append(friends, mapObject)
+		}
+	}
+	return friends
 }
 
-func pickRandomTarget(enemies []swagger.DungeonsandtrollsMapObjects) *swagger.DungeonsandtrollsMapObjects {
+func (b *Bot) pickTarget(objects *MapObjectsByCategory) *MapObject {
+	return b.pickClosestTarget(b.getEnemies(objects))
+}
+
+func (b *Bot) pickRandomTarget(enemies []MapObject) *MapObject {
 	// get random object
 	x := rand.Intn(len(enemies))
 	return &enemies[x]
 }
 
-func pickClosestTarget(enemies []swagger.DungeonsandtrollsMapObjects) *swagger.DungeonsandtrollsMapObjects {
+func (b *Bot) pickClosestTarget(enemies []MapObject) *MapObject {
 	// TODO: implement
 	return &enemies[0]
 }

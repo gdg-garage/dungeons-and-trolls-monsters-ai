@@ -1,6 +1,7 @@
 package bot
 
 import (
+	"log"
 	"math/rand"
 
 	swagger "github.com/gdg-garage/dungeons-and-trolls-go-client"
@@ -12,11 +13,18 @@ const (
 )
 
 func (b *Bot) pickSkill() *swagger.DungeonsandtrollsSkill {
-	getAllSkills(b.GameState.Character.Equip)
 
 	skills := getAllSkills(b.GameState.Character.Equip)
+	log.Println("All skills:", len(skills))
+	log.Printf("First Skill: %+v\n", skills[0])
+	log.Printf("DamageAmount: %+v\n", skills[0].DamageAmount)
+
 	skills = b.filterRequirementsMetSkills(skills)
+	log.Println("Skills with requirements met:", len(skills))
 	skills = b.filterDamageSkills(skills)
+	log.Println("Skills with damage:", len(skills))
+	skills = b.filterMeleeSkills(skills)
+	log.Println("Skills with melee range:", len(skills))
 
 	x := rand.Intn(len(skills))
 	return &skills[x]

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	swagger "github.com/gdg-garage/dungeons-and-trolls-go-client"
 	botPkg "github.com/gdg-garage/dungeons-and-trolls-monsters-ai/bot"
@@ -33,23 +34,32 @@ func main() {
 		return
 	}
 
-	// Use the client to make API requests
-	gameResp, httpResp, err := client.DungeonsAndTrollsApi.DungeonsAndTrollsGame(ctx, nil)
-	if err != nil {
-		log.Printf("HTTP Response: %+v\n", httpResp)
-		log.Fatal(err)
-	}
-	// fmt.Println("Response:", resp)
-	fmt.Println("Running bot ...")
-	id := "TODO"
-	bot := botPkg.New(&gameResp, id)
-	command := bot.Run(gameResp)
-	prettyprint.Command(command)
+	memory := botPkg.BotMemory{}
+	for {
+		log.Printf("\n\n\n")
+		log.Printf("=========================================\n")
+		log.Printf("=============== NEW TURN ================\n")
+		log.Printf("=========================================\n\n\n")
+		// Use the client to make API requests
+		gameResp, httpResp, err := client.DungeonsAndTrollsApi.DungeonsAndTrollsGame(ctx, nil)
+		if err != nil {
+			log.Printf("HTTP Response: %+v\n", httpResp)
+			log.Fatal(err)
+		}
+		// fmt.Println("Response:", resp)
+		fmt.Println("Running bot ...")
+		id := "TODO"
+		bot := botPkg.New(&gameResp, id, memory)
+		command := bot.Run3()
+		prettyprint.Command(command)
 
-	_, httpResp, err = client.DungeonsAndTrollsApi.DungeonsAndTrollsCommands(ctx, *command)
-	if err != nil {
-		log.Printf("HTTP Response: %+v\n", httpResp)
-		log.Fatal(err)
+		_, httpResp, err = client.DungeonsAndTrollsApi.DungeonsAndTrollsCommands(ctx, *command)
+		if err != nil {
+			log.Printf("HTTP Response: %+v\n", httpResp)
+			log.Fatal(err)
+		}
+		log.Println("Sleeping ...")
+		time.Sleep(2 * time.Second)
 	}
 }
 
