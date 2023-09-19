@@ -8,6 +8,61 @@ import (
 	swagger "github.com/gdg-garage/dungeons-and-trolls-go-client"
 )
 
+const (
+	IdleState = "idle"
+	// ExploreState = "explore"
+	AgroState    = "agro"
+	AttackState  = "attack"
+	DefendState  = "defend"
+	SupportState = "support"
+	FleeState    = "flee"
+)
+
+type BotState struct {
+	State        string
+	TargetCoords swagger.DungeonsandtrollsCoordinates
+	// ?
+	// TargetId
+}
+
+var botState = BotState{
+	State: IdleState,
+}
+
+func Run2(state swagger.DungeonsandtrollsGameState) *swagger.DungeonsandtrollsCommandsBatch {
+	// id := "TODO"
+
+	switch botState.State {
+	case IdleState:
+		// = no enemies
+		// enemies nearby -> agro
+	case AgroState:
+		// = aware of enemies
+		// attempt to target enemy -> attack
+		// no enemies -> idle
+		// maybe -> support
+		// timeout -> idle
+	case AttackState:
+		// = melee
+		// target dead, no enemies -> idle
+		// timeout -> change target
+		// better target -> change target
+		// ally in need -> support / defend
+		// low on health -> flee
+		// no allies -> flee
+	case DefendState:
+		// = fight alongside ally
+	case SupportState:
+		// = ranged, heal, buff, etc.
+	case FleeState:
+		// = run away
+		// no enemies -> idle
+		// allies nearby -> support
+		// timeout -> idle
+	}
+	return nil
+}
+
 func Run(state swagger.DungeonsandtrollsGameState) *swagger.DungeonsandtrollsCommandsBatch {
 	score := state.Score
 	log.Println("Score:", score)
