@@ -7,7 +7,7 @@ import (
 	"os"
 
 	swagger "github.com/gdg-garage/dungeons-and-trolls-go-client"
-	"github.com/gdg-garage/dungeons-and-trolls-monsters-ai/bot"
+	botPkg "github.com/gdg-garage/dungeons-and-trolls-monsters-ai/bot"
 	"github.com/gdg-garage/dungeons-and-trolls-monsters-ai/prettyprint"
 )
 
@@ -41,6 +41,8 @@ func main() {
 	}
 	// fmt.Println("Response:", resp)
 	fmt.Println("Running bot ...")
+	id := "TODO"
+	bot := botPkg.New(&gameResp, id)
 	command := bot.Run(gameResp)
 	prettyprint.Command(command)
 
