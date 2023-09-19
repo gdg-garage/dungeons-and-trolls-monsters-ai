@@ -90,8 +90,12 @@ func Run(state swagger.DungeonsandtrollsGameState) *swagger.DungeonsandtrollsCom
 	}
 
 	objects := getObjectsByCategory(&state)
+	log.Println("Stairs position:", objects.Stairs.Position)
 
-	if objects.Monsters != nil {
+	if len(objects.Monsters) > 0 {
+		for _, monster := range objects.Monsters {
+			log.Printf("Monster: %+v\n", monster)
+		}
 		log.Println("Let's fight!")
 		// TODO: Use Skill if monster in range
 		return &swagger.DungeonsandtrollsCommandsBatch{
@@ -110,7 +114,7 @@ func Run(state swagger.DungeonsandtrollsGameState) *swagger.DungeonsandtrollsCom
 
 	// Add seed
 	rand.Seed(time.Now().UnixNano())
-	random := rand.Intn(3)
+	random := rand.Intn(6)
 	log.Println("Random:", random)
 	if random <= 1 {
 		log.Println("Picking a random yell ...")
@@ -139,8 +143,6 @@ func Run(state swagger.DungeonsandtrollsGameState) *swagger.DungeonsandtrollsCom
 	return &swagger.DungeonsandtrollsCommandsBatch{
 		Move: objects.Stairs.Position,
 	}
-	// log.Printf("Map: %+v\n", state.Map_)
-	// stairsCoords := state.
 }
 
 func shop(state *swagger.DungeonsandtrollsGameState) *swagger.DungeonsandtrollsItem {
@@ -160,7 +162,9 @@ func getObjectsByCategory(state *swagger.DungeonsandtrollsGameState) objectsByCa
 	level := state.CurrentPosition.Level
 	currentMap := state.Map_.Levels[level]
 	objects := objectsByCategory{}
-	for _, object := range currentMap.Objects {
+	for i := range currentMap.Objects {
+		// get references to objects
+		object := currentMap.Objects[i]
 		if object.IsStairs {
 			log.Printf("Found stairs: %+v\n", object)
 			log.Printf("Stairs coords: %+v\n", object.Position)
@@ -169,10 +173,10 @@ func getObjectsByCategory(state *swagger.DungeonsandtrollsGameState) objectsByCa
 		if object.IsSpawn {
 			objects.Spawn = &object
 		}
-		if object.Players != nil {
+		if len(object.Players) > 0 {
 			objects.Players = append(objects.Players, object)
 		}
-		if object.Monsters != nil {
+		if len(object.Monsters) > 0 {
 			objects.Monsters = append(objects.Monsters, object)
 		}
 	}

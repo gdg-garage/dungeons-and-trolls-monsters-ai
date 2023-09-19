@@ -8,6 +8,7 @@ import (
 
 	swagger "github.com/gdg-garage/dungeons-and-trolls-go-client"
 	"github.com/gdg-garage/dungeons-and-trolls-monsters-ai/bot"
+	"github.com/gdg-garage/dungeons-and-trolls-monsters-ai/prettyprint"
 )
 
 func main() {
@@ -41,7 +42,7 @@ func main() {
 	// fmt.Println("Response:", resp)
 	fmt.Println("Running bot ...")
 	command := bot.Run(gameResp)
-	fmt.Printf("Command: %+v\n", command)
+	prettyprint.Command(command)
 
 	_, httpResp, err = client.DungeonsAndTrollsApi.DungeonsAndTrollsCommands(ctx, *command)
 	if err != nil {
