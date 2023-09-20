@@ -10,24 +10,16 @@ import (
 
 type BotMemory map[string]*Bot
 
-const (
-	IdleState = "idle"
-	// ExploreState = "explore"
-	AgroState    = "agro"
-	AttackState  = "attack"
-	DefendState  = "defend"
-	SupportState = "support"
-	FleeState    = "flee"
-)
-
 type BotState struct {
 	State        string
 	TargetObject swagger.DungeonsandtrollsMapObjects
 	Target       swagger.DungeonsandtrollsMonster
+	Mood         Mood
 }
 
 type Bot struct {
-	BotState      BotState
+	BotState BotState
+	// PrevBotState  BotState
 	GameState     *swagger.DungeonsandtrollsGameState
 	PrevGameState *swagger.DungeonsandtrollsGameState
 	// We can add more fields here
@@ -53,6 +45,8 @@ func New(state *swagger.DungeonsandtrollsGameState, botID string, existingBots B
 }
 
 func (b *Bot) Run3() *swagger.DungeonsandtrollsCommandsBatch {
+	b.updateMood()
+
 	state := *b.GameState
 	score := state.Score
 	log.Println("Score:", score)
@@ -111,6 +105,10 @@ func (b *Bot) Run3() *swagger.DungeonsandtrollsCommandsBatch {
 		}
 	}
 
+	// TODO: Get all enemies
+	// TODO: Get all friends
+	// TODO: Get all neutral
+
 	if len(objects.Monsters) > 0 {
 		// for _, monster := range objects.Monsters {
 		// 	log.Printf("Monster: %+v\n", monster)
@@ -152,44 +150,6 @@ func (b *Bot) Run3() *swagger.DungeonsandtrollsCommandsBatch {
 	return &swagger.DungeonsandtrollsCommandsBatch{
 		Move: objects.Stairs.Position,
 	}
-}
-
-var botState = BotState{
-	State: IdleState,
-}
-
-func Run2(state swagger.DungeonsandtrollsGameState) *swagger.DungeonsandtrollsCommandsBatch {
-	// id := "TODO"
-
-	switch botState.State {
-	case IdleState:
-		// = no enemies
-		// enemies nearby -> agro
-	case AgroState:
-		// = aware of enemies
-		// attempt to target enemy -> attack
-		// no enemies -> idle
-		// maybe -> support
-		// timeout -> idle
-	case AttackState:
-		// = melee
-		// target dead, no enemies -> idle
-		// timeout -> change target
-		// better target -> change target
-		// ally in need -> support / defend
-		// low on health -> flee
-		// no allies -> flee
-	case DefendState:
-		// = fight alongside ally
-	case SupportState:
-		// = ranged, heal, buff, etc.
-	case FleeState:
-		// = run away
-		// no enemies -> idle
-		// allies nearby -> support
-		// timeout -> idle
-	}
-	return nil
 }
 
 func shop(state *swagger.DungeonsandtrollsGameState) *swagger.DungeonsandtrollsItem {

@@ -77,7 +77,10 @@ func (b *Bot) IsFriendly(mo MapObject) bool {
 	// myFaction := b.GameState.Character.Faction
 	myFaction := "player"
 	faction := mo.GetFaction()
-	if faction == myFaction || faction == "neutral" {
+	if faction == "neutral" {
+		return false
+	}
+	if faction == myFaction {
 		return true
 	}
 	switch myFaction {
@@ -93,6 +96,30 @@ func (b *Bot) IsFriendly(mo MapObject) bool {
 		log.Println("ERROR: IsFriendly(): Unknown faction")
 		return true
 	}
+}
+
+const (
+	AlignmentHostile  = -1
+	AlignmentNeutral  = 0
+	AlignmentFriendly = 1
+)
+
+func (b *Bot) GetAlignment(mo MapObject) int {
+	if mo.GetFaction() == "neutral" {
+		return AlignmentNeutral
+	}
+	if b.IsFriendly(mo) {
+		return AlignmentFriendly
+	}
+	return AlignmentHostile
+}
+
+func (b *Bot) IsHostile(mo MapObject) bool {
+	return b.GetAlignment(mo) == AlignmentHostile
+}
+
+func (b *Bot) IsNeutral(mo MapObject) bool {
+	return b.GetAlignment(mo) == AlignmentNeutral
 }
 
 func NewPlayerMapObject(mapObjects swagger.DungeonsandtrollsMapObjects, index int) MapObject {
@@ -146,30 +173,54 @@ func (b *Bot) getMapObjectsByCategory() MapObjectsByCategory {
 		}
 		if len(object.Players) > 0 {
 			for i := range object.Players {
-				objects.Players = append(objects.Players, NewPlayerMapObject(object, i))
+				mo := NewPlayerMapObject(object, i)
+				b.AddMapObjectByAlignment(&objects, mo)
+				objects.Players = append(objects.Players, mo)
 			}
 		}
 		if len(object.Monsters) > 0 {
 			for i := range object.Monsters {
-				objects.Monsters = append(objects.Monsters, NewMonsterMapObject(object, i))
+				mo := NewMonsterMapObject(object, i)
+				b.AddMapObjectByAlignment(&objects, mo)
+				objects.Monsters = append(objects.Monsters, mo)
 			}
 		}
 		if len(object.Effects) > 0 {
 			for i := range object.Effects {
-				objects.Effects = append(objects.Effects, NewEffectMapObject(object, i))
+				mo := NewEffectMapObject(object, i)
+				objects.Effects = append(objects.Effects, mo)
 			}
 		}
 		// Maybe TODO (e.g. monsters guarding portals)
 		// if len(object.Portals) > 0 {
+
 	}
 	return objects
 }
 
 type MapObjectsByCategory struct {
-	Spawn    *swagger.DungeonsandtrollsMapObjects
-	Stairs   *swagger.DungeonsandtrollsMapObjects
+	Spawn  *swagger.DungeonsandtrollsMapObjects
+	Stairs *swagger.DungeonsandtrollsMapObjects
+
 	Players  []MapObject
 	Monsters []MapObject
 	Effects  []MapObject
 	// Portals  []MapObject
+
+	Hostile  []MapObject
+	Friendly []MapObject
+	Neutral  []MapObject
+}
+
+func (b *Bot) AddMapObjectByAlignment(cat *MapObjectsByCategory, mo MapObject) {
+	switch b.GetAlignment(mo) {
+	case AlignmentHostile:
+		cat.Hostile = append(cat.Hostile, mo)
+	case AlignmentFriendly:
+		cat.Friendly = append(cat.Friendly, mo)
+	case AlignmentNeutral:
+		cat.Neutral = append(cat.Neutral, mo)
+	default:
+		log.Println("ERROR: AddMapObjectByAlignment(): Unknown alignment")
+	}
 }
