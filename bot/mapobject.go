@@ -90,6 +90,7 @@ func (b *Bot) IsFriendly(mo MapObject) bool {
 	case "templar":
 		return faction == "player"
 	default:
+		log.Println("ERROR: IsFriendly(): Unknown faction")
 		return true
 	}
 }

@@ -89,7 +89,7 @@ func (b *Bot) filterDamageSkills(skills []swagger.DungeonsandtrollsSkill) []swag
 func (b *Bot) filterHealingSkills(skills []swagger.DungeonsandtrollsSkill) []swagger.DungeonsandtrollsSkill {
 	filtered := []swagger.DungeonsandtrollsSkill{}
 	for _, skill := range skills {
-		if b.calculateAttributesValue(*skill.DamageAmount) < 0 {
+		if b.calculateAttributesValue(*skill.TargetEffects.Attributes.Life) < 0 {
 			filtered = append(filtered, skill)
 		}
 	}
