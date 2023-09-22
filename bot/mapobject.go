@@ -4,6 +4,7 @@ import (
 	"log"
 
 	swagger "github.com/gdg-garage/dungeons-and-trolls-go-client"
+	"go.uber.org/zap"
 )
 
 /*
@@ -56,6 +57,21 @@ func (mo MapObject) GetId() string {
 func (mo MapObject) GetIdentifier() *swagger.DungeonsandtrollsIdentifier {
 	return &swagger.DungeonsandtrollsIdentifier{
 		Id: mo.GetId(),
+	}
+}
+
+func (mo MapObject) GetName() string {
+	switch mo.Type {
+	case MapObjectTypePlayer:
+		return mo.MapObjects.Players[mo.Index].Name
+	case MapObjectTypeMonster:
+		return mo.MapObjects.Monsters[mo.Index].Name
+	case MapObjectTypeEffect:
+		log.Println("ERROR: MapObject.GetName(): Can't get name for Effect")
+		return ""
+	default:
+		log.Println("ERROR: MapObject.GetName(): Unknown type")
+		return ""
 	}
 }
 
@@ -164,8 +180,9 @@ func (b *Bot) getMapObjectsByCategory() MapObjectsByCategory {
 		// get references to objects
 		object := currentMap.Objects[i]
 		if object.IsStairs {
-			log.Printf("Found stairs: %+v\n", object)
-			log.Printf("Stairs coords: %+v\n", object.Position)
+			b.Logger.Debugw("Found stairs",
+				zap.Any("stairsPosition", object.Position),
+			)
 			objects.Stairs = &object
 		}
 		if object.IsSpawn {

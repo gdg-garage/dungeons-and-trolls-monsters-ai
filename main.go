@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"os"
 	"time"
@@ -10,6 +9,8 @@ import (
 	swagger "github.com/gdg-garage/dungeons-and-trolls-go-client"
 	botPkg "github.com/gdg-garage/dungeons-and-trolls-monsters-ai/bot"
 	"github.com/gdg-garage/dungeons-and-trolls-monsters-ai/prettyprint"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 func main() {
@@ -29,46 +30,75 @@ func main() {
 	// Create a new client instance
 	client := swagger.NewAPIClient(cfg)
 
+	loggerConfig := zap.NewProductionConfig()
+
+	// Set key names and time format for Better Stack
+	loggerConfig.EncoderConfig.MessageKey = "message"
+	loggerConfig.EncoderConfig.TimeKey = "dt"
+	loggerConfig.EncoderConfig.EncodeTime = zapcore.RFC3339NanoTimeEncoder
+
+	// Set log level to Debug
+	loggerConfig.Level = zap.NewAtomicLevelAt(zap.DebugLevel)
+
+	// Set JSON output encoder
+	loggerConfig.Encoding = "json"
+
+	// Create the logger
+	logger, err := loggerConfig.Build()
+	if err != nil {
+		log.Fatalf("FATAL: Can't initialize zap logger: %v", err)
+	}
+	defer logger.Sync()
+
 	if len(os.Args) > 2 && os.Args[2] == "respawn" {
-		respawn(ctx, client)
+		respawn(ctx, logger.Sugar(), client)
 		return
 	}
 
 	memory := botPkg.BotMemory{}
 	for {
-		log.Printf("\n\n\n")
-		log.Printf("=========================================\n")
-		log.Printf("=============== NEW TURN ================\n")
-		log.Printf("=========================================\n\n\n")
+		logger.Info("Fetching game state for NEW TICK ...")
 		// Use the client to make API requests
 		gameResp, httpResp, err := client.DungeonsAndTrollsApi.DungeonsAndTrollsGame(ctx, nil)
 		if err != nil {
-			log.Printf("HTTP Response: %+v\n", httpResp)
-			log.Fatal(err)
+			log.Println(err)
+			log.Println("HTTP error when fetching game state")
+			logger.Error("HTTP error when fetching game state",
+				zap.Error(err),
+				zap.Any("response", httpResp),
+			)
 		}
-		// fmt.Println("Response:", resp)
-		fmt.Println("Running bot ...")
+		loggerWTick := logger.Sugar().With(zap.String("tick", gameResp.Tick))
+		loggerWTick.Info("============= Game state fetched for NEW TICK =============")
+		loggerWTick.Debug("Running bot ...")
 		id := "TODO"
-		bot := botPkg.New(&gameResp, id, memory)
+		bot := botPkg.New(&gameResp, id, memory, loggerWTick)
 		command := bot.Run3()
-		prettyprint.Command(command)
+		prettyprint.Command(loggerWTick, command)
 
 		_, httpResp, err = client.DungeonsAndTrollsApi.DungeonsAndTrollsCommands(ctx, *command)
 		if err != nil {
-			log.Printf("HTTP Response: %+v\n", httpResp)
-			log.Fatal(err)
+			loggerWTick.Errorw("HTTP error when sending commands",
+				zap.Error(err),
+				zap.Any("response", httpResp),
+			)
 		}
-		log.Println("Sleeping ...")
-		time.Sleep(2 * time.Second)
+		duration := 2 * time.Second
+		loggerWTick.Warnw("Sleeping ... TODO: only sleep till end of tick",
+			zap.Duration("duration", duration),
+		)
+		time.Sleep(duration)
 	}
 }
 
-func respawn(ctx context.Context, client *swagger.APIClient) {
+func respawn(ctx context.Context, logger *zap.SugaredLogger, client *swagger.APIClient) {
 	dummyPayload := ctx
-	log.Println("Respawning ...")
+	logger.Warn("Respawning ...")
 	_, httpResp, err := client.DungeonsAndTrollsApi.DungeonsAndTrollsRespawn(ctx, dummyPayload)
 	if err != nil {
-		log.Printf("HTTP Response: %+v\n", httpResp)
-		log.Fatal(err)
+		logger.Errorw("HTTP error when respawning",
+			zap.Error(err),
+			zap.Any("response", httpResp),
+		)
 	}
 }

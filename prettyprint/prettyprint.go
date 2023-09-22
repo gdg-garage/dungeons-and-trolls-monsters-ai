@@ -1,27 +1,51 @@
 package prettyprint
 
 import (
-	"fmt"
-
 	swagger "github.com/gdg-garage/dungeons-and-trolls-go-client"
+	"go.uber.org/zap"
 )
 
-func Command(cmd *swagger.DungeonsandtrollsCommandsBatch) {
-	fmt.Printf("Command full: %+v\n", cmd)
-	// &{Buy:<nil> PickUp:<nil> Move:0x1400021c324 Skill:<nil> Yell:<nil>}
+func extractCommandType(cmd *swagger.DungeonsandtrollsCommandsBatch) string {
 	if cmd.Buy != nil {
-		fmt.Printf("  -> Buy: %+v\n", cmd.Buy)
+		return "Buy"
 	}
 	if cmd.PickUp != nil {
-		fmt.Printf("  -> PickUp: %+v\n", cmd.PickUp)
+		return "PickUp"
 	}
 	if cmd.Move != nil {
-		fmt.Printf("  -> Move: %+v\n", cmd.Move)
+		return "Move"
 	}
 	if cmd.Skill != nil {
-		fmt.Printf("  -> Skill: %+v\n", cmd.Skill)
+		return "Skill"
 	}
 	if cmd.Yell != nil {
-		fmt.Printf("  -> Yell: %+v\n", cmd.Yell)
+		return "Yell"
 	}
+	return ""
+}
+
+func extractCommand(cmd *swagger.DungeonsandtrollsCommandsBatch) interface{} {
+	if cmd.Buy != nil {
+		return cmd.Buy
+	}
+	if cmd.PickUp != nil {
+		return cmd.PickUp
+	}
+	if cmd.Move != nil {
+		return cmd.Move
+	}
+	if cmd.Skill != nil {
+		return cmd.Skill
+	}
+	if cmd.Yell != nil {
+		return cmd.Yell
+	}
+	return nil
+}
+
+func Command(logger *zap.SugaredLogger, cmd *swagger.DungeonsandtrollsCommandsBatch) {
+	logger.Debugw("Command",
+		zap.String("commandType", extractCommandType(cmd)),
+		zap.Any("command", extractCommand(cmd)),
+	)
 }

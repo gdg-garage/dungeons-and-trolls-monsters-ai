@@ -13,7 +13,7 @@ while IFS=$'\n' read -r line; do
   curl -X POST \
   -H 'Content-Type: application/json' \
   -H 'Authorization: Bearer '"$1" \
-  -d '{"dt":"'"$(date -u +'%Y-%m-%d %T UTC')"'","message":"'"${line}"'"}' \
+  -d "${line}" \
   -k \
   https://in.logs.betterstack.com
 done
