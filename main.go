@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"os"
 	"time"
@@ -65,7 +66,7 @@ func main() {
 			log.Println("HTTP error when fetching game state")
 			logger.Error("HTTP error when fetching game state",
 				zap.Error(err),
-				zap.Any("response", httpResp),
+				zap.Any("response", fmt.Sprintf("%+v", httpResp)),
 			)
 		}
 		loggerWTick := logger.Sugar().With(zap.String("tick", gameResp.Tick))
@@ -80,7 +81,7 @@ func main() {
 		if err != nil {
 			loggerWTick.Errorw("HTTP error when sending commands",
 				zap.Error(err),
-				zap.Any("response", httpResp),
+				zap.Any("response", fmt.Sprintf("%+v", httpResp)),
 			)
 		}
 		duration := 2 * time.Second
@@ -98,7 +99,7 @@ func respawn(ctx context.Context, logger *zap.SugaredLogger, client *swagger.API
 	if err != nil {
 		logger.Errorw("HTTP error when respawning",
 			zap.Error(err),
-			zap.Any("response", httpResp),
+			zap.Any("response", fmt.Sprintf("%+v", httpResp)),
 		)
 	}
 }
