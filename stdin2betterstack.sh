@@ -4,7 +4,7 @@
 # check if the token is passed
 if [ -z "$1" ]; then
   echo "Please provide Better Stack token."
-  echo "USAGE: go run main.go BOT_TOKEN | ./stdin2betterstack.sh BETTER_STACK_TOKEN" 
+  echo "USAGE: go run main.go BOT_TOKEN | ./stdin2betterstack.sh BETTER_STACK_TOKEN"
   exit 1
 fi
 
