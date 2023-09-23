@@ -71,6 +71,11 @@ func (b *Bot) Run3() *swagger.DungeonsandtrollsCommandsBatch {
 		}
 	}
 
+	b.calculateDistanceAndLineOfSight(state.CurrentPosition.Level)
+
+	// b.Logger.Warn("Not doing anything ... (debugging distances and LoS)")
+	// return &swagger.DungeonsandtrollsCommandsBatch{}
+
 	if mainHandItem == nil {
 		b.Logger.Debug("Looking for items to buy ...")
 		item := b.shop()
