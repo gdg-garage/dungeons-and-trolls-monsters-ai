@@ -15,11 +15,15 @@ import (
 )
 
 func main() {
-	// Read command line arguments
-	if len(os.Args) < 2 {
-		log.Fatal("USAGE: ./dungeons-and-trolls-monsters-ai API_KEY")
+	// Read command line arguments OR environment variables
+	apiKey, found := os.LookupEnv("DNT_API_KEY")
+	if !found {
+		if len(os.Args) < 2 {
+			log.Fatal("USAGE: ./dungeons-and-trolls-monsters-ai API_KEY")
+		} else {
+			apiKey = os.Args[1]
+		}
 	}
-	apiKey := os.Args[1]
 
 	// Initialize the HTTP client and set the base URL for the API
 	cfg := swagger.NewConfiguration()
