@@ -106,11 +106,8 @@ func (b *Bot) filterHealingSkills(skills []swagger.DungeonsandtrollsSkill) []swa
 func (b *Bot) filterMovementSkills(skills []swagger.DungeonsandtrollsSkill) []swagger.DungeonsandtrollsSkill {
 	filtered := []swagger.DungeonsandtrollsSkill{}
 	for _, skill := range skills {
-		for _, flag := range skill.CasterEffects.Flags {
-			if flag == "move" {
-				filtered = append(filtered, skill)
-				break
-			}
+		if skill.CasterEffects.Flags.Movement {
+			filtered = append(filtered, skill)
 		}
 	}
 	return filtered

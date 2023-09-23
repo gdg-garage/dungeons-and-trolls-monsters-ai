@@ -2,7 +2,7 @@ module github.com/gdg-garage/dungeons-and-trolls-monsters-ai
 
 go 1.19
 
-require github.com/gdg-garage/dungeons-and-trolls-go-client v0.0.2
+require github.com/gdg-garage/dungeons-and-trolls-go-client v0.0.3
 
 require (
 	github.com/antihax/optional v1.0.0 // indirect

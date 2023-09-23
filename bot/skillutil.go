@@ -42,7 +42,7 @@ func calculateAttributesValue(myAttrs swagger.DungeonsandtrollsAttributes, attrs
 	value += myAttrs.Life * attrs.Life
 	value += myAttrs.Stamina * attrs.Stamina
 	value += myAttrs.Mana * attrs.Mana
-	value += attrs.Scalar
+	value += attrs.Constant
 	return int(value)
 }
 
@@ -134,8 +134,11 @@ func useSkill(skill swagger.DungeonsandtrollsSkill, target MapObject) *swagger.D
 	if *skill.Target == swagger.POSITION_SkillTarget {
 		return &swagger.DungeonsandtrollsCommandsBatch{
 			Skill: &swagger.DungeonsandtrollsSkillUse{
-				SkillId:  skill.Id,
-				Location: target.MapObjects.Position,
+				SkillId: skill.Id,
+				Coordinates: &swagger.DungeonsandtrollsPosition{
+					PositionX: target.MapObjects.Position.PositionX,
+					PositionY: target.MapObjects.Position.PositionY,
+				},
 			},
 		}
 	}

@@ -28,7 +28,7 @@ func main() {
 	loggerConfig.EncoderConfig.EncodeTime = zapcore.RFC3339NanoTimeEncoder
 
 	// Set log level to Debug
-	loggerConfig.Level = zap.NewAtomicLevelAt(zap.DebugLevel)
+	loggerConfig.Level = zap.NewAtomicLevelAt(zap.InfoLevel)
 
 	// Set JSON output encoder
 	loggerConfig.Encoding = "json"
@@ -100,7 +100,7 @@ func main() {
 				zap.Any("response", fmt.Sprintf("%+v", httpResp)),
 			)
 		}
-		duration := 2 * time.Second
+		duration := 5 * time.Second
 		loggerWTick.Warnw("Sleeping ... TODO: only sleep till end of tick",
 			zap.Duration("duration", duration),
 		)

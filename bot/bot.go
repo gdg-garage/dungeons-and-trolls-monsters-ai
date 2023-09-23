@@ -71,7 +71,7 @@ func (b *Bot) Run3() *swagger.DungeonsandtrollsCommandsBatch {
 		}
 	}
 
-	b.calculateDistanceAndLineOfSight(state.CurrentPosition.Level)
+	b.calculateDistanceAndLineOfSight(state.CurrentLevel)
 
 	// b.Logger.Warn("Not doing anything ... (debugging distances and LoS)")
 	// return &swagger.DungeonsandtrollsCommandsBatch{}
@@ -153,7 +153,7 @@ func (b *Bot) Run3() *swagger.DungeonsandtrollsCommandsBatch {
 					"targetName", target.GetName(),
 				)
 				return &swagger.DungeonsandtrollsCommandsBatch{
-					Move: target.MapObjects.Position,
+					Move: coordsToPosition(*target.MapObjects.Position),
 				}
 			}
 		}
@@ -172,7 +172,7 @@ func (b *Bot) Run3() *swagger.DungeonsandtrollsCommandsBatch {
 		"stairsPosition", objects.Stairs.Position,
 	)
 	return &swagger.DungeonsandtrollsCommandsBatch{
-		Move: objects.Stairs.Position,
+		Move: coordsToPosition(*objects.Stairs.Position),
 	}
 }
 
@@ -183,7 +183,7 @@ func (b *Bot) shop() *swagger.DungeonsandtrollsItem {
 		if item.Price <= money {
 			if *item.Slot == swagger.MAIN_HAND_DungeonsandtrollsItemType {
 				if len(item.Skills) > 0 {
-					if item.Skills[0].DamageAmount.Scalar > 0 {
+					if item.Skills[0].DamageAmount.Constant > 0 {
 						b.Logger.Infow("Found item to buy ...",
 							"itemName", item.Name,
 						)
@@ -194,4 +194,18 @@ func (b *Bot) shop() *swagger.DungeonsandtrollsItem {
 		}
 	}
 	return nil
+}
+
+func coordsToPosition(coords swagger.DungeonsandtrollsCoordinates) *swagger.DungeonsandtrollsPosition {
+	return &swagger.DungeonsandtrollsPosition{
+		PositionX: coords.PositionX,
+		PositionY: coords.PositionY,
+	}
+}
+
+func positionToCoords(position swagger.DungeonsandtrollsPosition) *swagger.DungeonsandtrollsCoordinates {
+	return &swagger.DungeonsandtrollsCoordinates{
+		PositionX: position.PositionX,
+		PositionY: position.PositionY,
+	}
 }

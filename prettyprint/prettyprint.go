@@ -44,7 +44,7 @@ func extractCommand(cmd *swagger.DungeonsandtrollsCommandsBatch) interface{} {
 }
 
 func Command(logger *zap.SugaredLogger, cmd *swagger.DungeonsandtrollsCommandsBatch) {
-	logger.Debugw("Command",
+	logger.Infow("Command",
 		zap.String("commandType", extractCommandType(cmd)),
 		zap.Any("command", extractCommand(cmd)),
 	)

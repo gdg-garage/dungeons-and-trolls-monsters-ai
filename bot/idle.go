@@ -20,7 +20,7 @@ func (b *Bot) randomWalk() *swagger.DungeonsandtrollsCommandsBatch {
 			if int(objects.Position.PositionX) == newX && int(objects.Position.PositionY) == newY {
 				if objects.IsFree {
 					return &swagger.DungeonsandtrollsCommandsBatch{
-						Move: &swagger.DungeonsandtrollsCoordinates{
+						Move: &swagger.DungeonsandtrollsPosition{
 							PositionX: int32(newX),
 							PositionY: int32(newY),
 						},

@@ -173,7 +173,7 @@ func NewEffectMapObject(mapObjects swagger.DungeonsandtrollsMapObjects, index in
 
 func (b *Bot) getMapObjectsByCategory() MapObjectsByCategory {
 	state := *b.GameState
-	level := state.CurrentPosition.Level
+	level := state.CurrentLevel
 	currentMap := state.Map_.Levels[level]
 	objects := MapObjectsByCategory{}
 	for i := range currentMap.Objects {
