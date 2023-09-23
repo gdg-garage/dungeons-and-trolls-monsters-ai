@@ -17,7 +17,7 @@ import (
 func main() {
 	stop, found := os.LookupEnv("DNT_PAUSE_APP")
 	if found && stop != "" {
-		log.Println(">>> MONSTER AI IS PAUSED! Unset DNT_PAUSE_APP env variable to unpause. <<<")
+		log.Println("{ 'message': '>>> MONSTER AI IS PAUSED! Unset DNT_PAUSE_APP env variable to unpause. <<<' }")
 		os.Exit(0)
 	}
 	// Read command line arguments OR environment variables
