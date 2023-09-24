@@ -9,7 +9,6 @@ import (
 
 	swagger "github.com/gdg-garage/dungeons-and-trolls-go-client"
 	botPkg "github.com/gdg-garage/dungeons-and-trolls-monsters-ai/bot"
-	"github.com/gdg-garage/dungeons-and-trolls-monsters-ai/prettyprint"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -90,10 +89,13 @@ func main() {
 		loggerWTick.Debug("Running bot ...")
 		id := "TODO"
 		bot := botPkg.New(&gameResp, id, memory, loggerWTick)
-		command := bot.Run3()
-		prettyprint.Command(loggerWTick, command)
+		command := bot.Run4()
+		loggerWTick.Infow("Sending monster commands",
+			zap.Any("commands", command),
+		)
+		// prettyprint.Command(loggerWTick, command)
 
-		resp, httpResp, err := client.DungeonsAndTrollsApi.DungeonsAndTrollsCommands(ctx, *command)
+		resp, httpResp, err := client.DungeonsAndTrollsApi.DungeonsAndTrollsMonstersCommands(ctx, *command)
 		if err != nil {
 			loggerWTick.Errorw("HTTP error when sending commands",
 				zap.Error(err),

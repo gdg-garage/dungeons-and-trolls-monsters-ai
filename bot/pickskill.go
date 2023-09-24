@@ -77,12 +77,32 @@ func (b *Bot) filterRequirementsMetSkills(skills []swagger.DungeonsandtrollsSkil
 	return filtered
 }
 
+func (b *Bot) filterRequirementsMetSkills2(attrs swagger.DungeonsandtrollsAttributes, skills []swagger.DungeonsandtrollsSkill) []swagger.DungeonsandtrollsSkill {
+	filtered := []swagger.DungeonsandtrollsSkill{}
+	for _, skill := range skills {
+		if areAttributeRequirementMet(attrs, *skill.Cost) {
+			filtered = append(filtered, skill)
+		}
+	}
+	return filtered
+}
+
 // Damage skills
 
 func (b *Bot) filterDamageSkills(skills []swagger.DungeonsandtrollsSkill) []swagger.DungeonsandtrollsSkill {
 	filtered := []swagger.DungeonsandtrollsSkill{}
 	for _, skill := range skills {
 		if b.calculateAttributesValue(*skill.DamageAmount) > 0 {
+			filtered = append(filtered, skill)
+		}
+	}
+	return filtered
+}
+
+func (b *Bot) filterDamageSkills2(attrs swagger.DungeonsandtrollsAttributes, skills []swagger.DungeonsandtrollsSkill) []swagger.DungeonsandtrollsSkill {
+	filtered := []swagger.DungeonsandtrollsSkill{}
+	for _, skill := range skills {
+		if calculateAttributesValue(attrs, *skill.DamageAmount) > 0 {
 			filtered = append(filtered, skill)
 		}
 	}

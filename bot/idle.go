@@ -30,3 +30,37 @@ func (b *Bot) randomWalk() *swagger.DungeonsandtrollsCommandsBatch {
 		}
 	}
 }
+
+func (b *Bot) randomWalkFromPosition(level int32, pos swagger.DungeonsandtrollsPosition) *swagger.DungeonsandtrollsCommandsBatch {
+	// get random direction
+	for i := 0; i < 20; i++ {
+		distanceX := rand.Intn(4)
+		distanceY := rand.Intn(4)
+		newX := int(pos.PositionX) + distanceX
+		newY := int(pos.PositionY) + distanceY
+		currentMap := b.GameState.Map_.Levels[level]
+
+		isFree := true
+		for _, objects := range currentMap.Objects {
+			if int(objects.Position.PositionX) == newX && int(objects.Position.PositionY) == newY && !objects.IsFree {
+				isFree = false
+			}
+		}
+		if !isFree {
+			continue
+		}
+		return &swagger.DungeonsandtrollsCommandsBatch{
+			Move: &swagger.DungeonsandtrollsPosition{
+				PositionX: int32(newX),
+				PositionY: int32(newY),
+			},
+		}
+	}
+	b.Logger.Warnw("randomWalkFromPosition: No free position found")
+	return &swagger.DungeonsandtrollsCommandsBatch{
+		Move: &swagger.DungeonsandtrollsPosition{
+			PositionX: int32(pos.PositionX),
+			PositionY: int32(pos.PositionY),
+		},
+	}
+}

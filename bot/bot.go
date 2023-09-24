@@ -50,6 +50,63 @@ func New(state *swagger.DungeonsandtrollsGameState, botID string, existingBots B
 	return bot
 }
 
+func (b *Bot) Run4() *swagger.DungeonsandtrollsCommandsForMonsters {
+	commands := swagger.DungeonsandtrollsCommandsForMonsters{}
+	commands.Commands = make(map[string]swagger.DungeonsandtrollsCommandsBatch)
+	for level_ := range b.GameState.Map_.Levels {
+		level := int32(level_)
+		objects := b.getMapObjectsByCategoryForLevel(level)
+
+		for _, monster := range objects.Monsters {
+			id := monster.GetId()
+			attrs := *monster.MapObjects.Monsters[monster.Index].Attributes
+			if len(objects.Players) > 0 {
+				skills := getAllSkills(monster.MapObjects.Monsters[monster.Index].EquippedItems)
+				dmgSkills := b.filterDamageSkills2(attrs, skills)
+				skills2 := b.filterRequirementsMetSkills2(attrs, dmgSkills)
+				if len(skills2) == 0 {
+					b.Logger.Errorw("No skills available",
+						"monsterName", monster.GetName(),
+						"monsterID", monster.GetId(),
+					)
+					continue
+				}
+				attackingPlayer := false
+				for _, player := range objects.Players {
+					if player.MapObjects.Position.PositionX == monster.MapObjects.Position.PositionX && player.MapObjects.Position.PositionY == monster.MapObjects.Position.PositionY {
+						r := rand.Intn(int(len(skills2)))
+						commands.Commands[id] = *useSkill(skills2[r], player)
+						attackingPlayer = true
+						break
+					}
+				}
+				if attackingPlayer {
+					continue
+				}
+				// Go to player
+				rp := rand.Intn(len(objects.Players))
+				commands.Commands[id] = swagger.DungeonsandtrollsCommandsBatch{
+					Move: coordsToPosition(*objects.Players[rp].MapObjects.Position),
+				}
+				continue
+			}
+
+			// Idle
+			random := rand.Intn(4)
+			if random < 2 {
+				commands.Commands[id] = swagger.DungeonsandtrollsCommandsBatch{
+					Yell: &swagger.DungeonsandtrollsMessage{
+						Text: "I'm a monster!",
+					},
+				}
+				continue
+			}
+			commands.Commands[id] = *b.randomWalkFromPosition(level, *coordsToPosition(*monster.MapObjects.Position))
+		}
+	}
+	return &commands
+}
+
 func (b *Bot) Run3() *swagger.DungeonsandtrollsCommandsBatch {
 	b.updateMood()
 
