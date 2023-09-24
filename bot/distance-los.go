@@ -23,7 +23,7 @@ func (b *Bot) calculateDistanceAndLineOfSight(level int32) map[swagger.Dungeonsa
 	resultMap := make(map[swagger.DungeonsandtrollsPosition]MapCellExt)
 	// fill map with map objects
 	for _, objects := range currentMap.Objects {
-		resultMap[*coordsToPosition(*objects.Position)] = MapCellExt{
+		resultMap[*objects.Position] = MapCellExt{
 			mapObjects:  objects,
 			distance:    math.MaxInt32,
 			lineOfSight: false,

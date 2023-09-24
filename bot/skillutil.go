@@ -135,7 +135,7 @@ func useSkill(skill swagger.DungeonsandtrollsSkill, target MapObject) *swagger.D
 		return &swagger.DungeonsandtrollsCommandsBatch{
 			Skill: &swagger.DungeonsandtrollsSkillUse{
 				SkillId: skill.Id,
-				Coordinates: &swagger.DungeonsandtrollsPosition{
+				Position: &swagger.DungeonsandtrollsPosition{
 					PositionX: target.MapObjects.Position.PositionX,
 					PositionY: target.MapObjects.Position.PositionY,
 				},

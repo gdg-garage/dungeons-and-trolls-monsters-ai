@@ -91,7 +91,7 @@ func main() {
 		bot := botPkg.New(&gameResp, id, memory, loggerWTick)
 		command := bot.Run4()
 		loggerWTick.Infow("Sending monster commands",
-			zap.Any("commands", command),
+			zap.Any("commands", command.Commands),
 		)
 		// prettyprint.Command(loggerWTick, command)
 

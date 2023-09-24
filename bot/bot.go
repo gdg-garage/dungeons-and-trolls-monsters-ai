@@ -86,7 +86,7 @@ func (b *Bot) Run4() *swagger.DungeonsandtrollsCommandsForMonsters {
 				// Go to player
 				rp := rand.Intn(len(objects.Players))
 				commands.Commands[id] = swagger.DungeonsandtrollsCommandsBatch{
-					Move: coordsToPosition(*objects.Players[rp].MapObjects.Position),
+					Move: objects.Players[rp].MapObjects.Position,
 				}
 				continue
 			}
@@ -101,7 +101,7 @@ func (b *Bot) Run4() *swagger.DungeonsandtrollsCommandsForMonsters {
 				}
 				continue
 			}
-			commands.Commands[id] = *b.randomWalkFromPosition(level, *coordsToPosition(*monster.MapObjects.Position))
+			commands.Commands[id] = *b.randomWalkFromPosition(level, *monster.MapObjects.Position)
 		}
 	}
 	return &commands
@@ -207,7 +207,7 @@ func (b *Bot) Run3() *swagger.DungeonsandtrollsCommandsBatch {
 					"targetName", target.GetName(),
 				)
 				return &swagger.DungeonsandtrollsCommandsBatch{
-					Move: coordsToPosition(*target.MapObjects.Position),
+					Move: target.MapObjects.Position,
 				}
 			}
 		}
@@ -226,7 +226,7 @@ func (b *Bot) Run3() *swagger.DungeonsandtrollsCommandsBatch {
 		"stairsPosition", objects.Stairs.Position,
 	)
 	return &swagger.DungeonsandtrollsCommandsBatch{
-		Move: coordsToPosition(*objects.Stairs.Position),
+		Move: objects.Stairs.Position,
 	}
 }
 
