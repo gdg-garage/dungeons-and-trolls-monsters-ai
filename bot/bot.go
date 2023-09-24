@@ -73,9 +73,6 @@ func (b *Bot) Run3() *swagger.DungeonsandtrollsCommandsBatch {
 
 	b.calculateDistanceAndLineOfSight(state.CurrentLevel)
 
-	// b.Logger.Warn("Not doing anything ... (debugging distances and LoS)")
-	// return &swagger.DungeonsandtrollsCommandsBatch{}
-
 	if mainHandItem == nil {
 		b.Logger.Debug("Looking for items to buy ...")
 		item := b.shop()
@@ -94,7 +91,8 @@ func (b *Bot) Run3() *swagger.DungeonsandtrollsCommandsBatch {
 
 	// Add seed
 	rand.Seed(time.Now().UnixNano())
-	random := rand.Intn(8)
+	// ALWAYS YELL
+	random := rand.Intn(1)
 	if random <= 1 {
 		b.Logger.Debug("Picking a random yell ...")
 		randomYell := rand.Intn(8)

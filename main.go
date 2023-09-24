@@ -93,13 +93,17 @@ func main() {
 		command := bot.Run3()
 		prettyprint.Command(loggerWTick, command)
 
-		_, httpResp, err = client.DungeonsAndTrollsApi.DungeonsAndTrollsCommands(ctx, *command)
+		resp, httpResp, err := client.DungeonsAndTrollsApi.DungeonsAndTrollsCommands(ctx, *command)
 		if err != nil {
 			loggerWTick.Errorw("HTTP error when sending commands",
 				zap.Error(err),
-				zap.Any("response", fmt.Sprintf("%+v", httpResp)),
+				zap.String("response", fmt.Sprintf("%+v", httpResp)),
 			)
 		}
+		loggerWTick.Infow("HTTP response when sending commands",
+			zap.Any("response", fmt.Sprintf("%+v", resp)),
+			zap.String("httpResponse", fmt.Sprintf("%+v", httpResp)),
+		)
 		duration := 5 * time.Second
 		loggerWTick.Warnw("Sleeping ... TODO: only sleep till end of tick",
 			zap.Duration("duration", duration),
