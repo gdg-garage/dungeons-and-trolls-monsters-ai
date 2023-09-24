@@ -18,9 +18,10 @@ func (b *Bot) calculateDistanceAndLineOfSight(level int32) map[swagger.Dungeonsa
 
 	// distance to obstacles used for line of sight
 	distanceToFirstObstacle := make(map[float32]float32)
-	// map for resulting map positions
+
+	// map for resulting map positions with distance and line of sight
 	resultMap := make(map[swagger.DungeonsandtrollsPosition]MapCellExt)
-	// map for original map positions
+	// fill map with map objects
 	for _, objects := range currentMap.Objects {
 		resultMap[*coordsToPosition(*objects.Position)] = MapCellExt{
 			mapObjects:  objects,
@@ -28,6 +29,7 @@ func (b *Bot) calculateDistanceAndLineOfSight(level int32) map[swagger.Dungeonsa
 			lineOfSight: false,
 		}
 	}
+
 	b.Logger.Infow("Original map -> (player: A, no data / free: ' ', wall: w, spawn: *, stairs: s, unknown: ?)")
 	for y := int32(0); y < currentMap.Height; y++ {
 		row := ""
@@ -56,6 +58,7 @@ func (b *Bot) calculateDistanceAndLineOfSight(level int32) map[swagger.Dungeonsa
 	visited := make(map[swagger.DungeonsandtrollsPosition]bool)
 	queue := []swagger.DungeonsandtrollsPosition{}
 
+	// start from player
 	currentPosition := *b.GameState.CurrentPosition
 	// add current node to queue and add its distance to final map
 	queue = append(queue, currentPosition)
@@ -70,32 +73,17 @@ func (b *Bot) calculateDistanceAndLineOfSight(level int32) map[swagger.Dungeonsa
 		lineOfSight: true,
 	}
 
-	b.Logger.Debugw("Setting distance and line of sight (current position)",
-		"position", currentPosition,
-		"distance", 0,
-		"lineOfSight", true,
-	)
-
 	for len(queue) > 0 {
-		b.Logger.Debugw("Queue",
-			"queue", queue,
-			"queueLength", len(queue),
-		)
 		node := queue[0]
 		queue = queue[1:]
 
 		nodeVisited, found := visited[node]
 		if !found || !nodeVisited {
-			b.Logger.Debugw("Visiting node",
-				"position", node,
-			)
 			visited[node] = true
 
 			// Enqueue all unvisited neighbors
 			for _, neighbor := range getNeighbors(node) {
-				b.Logger.Debugw("Checking neighbor",
-					"position", neighbor,
-				)
+				// neighbors can be out of the map,
 				cell, found := resultMap[neighbor]
 				// must be in bounds
 				// must not be visited
@@ -114,18 +102,9 @@ func (b *Bot) calculateDistanceAndLineOfSight(level int32) map[swagger.Dungeonsa
 						distance:    distance,
 						lineOfSight: lineOfSight,
 					}
-					b.Logger.Debugw("Setting distance and line of sight",
-						"position", neighbor,
-						"distance", distance,
-						"lineOfSight", lineOfSight,
-					)
 					queue = append(queue, neighbor)
 				}
 			}
-		} else {
-			b.Logger.Debugw("Node already visited",
-				"position", node,
-			)
 		}
 	}
 
@@ -184,13 +163,6 @@ func getNeighbors(pos swagger.DungeonsandtrollsPosition) []swagger.Dungeonsandtr
 		makePosition(pos.PositionX, pos.PositionY-1),
 		makePosition(pos.PositionX, pos.PositionY+1),
 	}
-}
-
-// manhattan adjacency
-func isAdjacent(pos1 swagger.DungeonsandtrollsPosition, pos2 swagger.DungeonsandtrollsPosition) bool {
-	absX := math.Abs(float64(pos1.PositionX) - float64(pos2.PositionX))
-	absY := math.Abs(float64(pos1.PositionY) - float64(pos2.PositionY))
-	return (absX <= 1 && absY == 0) || (absX == 0 && absY <= 1)
 }
 
 func (b *Bot) isInBounds(level int32, pos swagger.DungeonsandtrollsPosition) bool {
@@ -290,6 +262,10 @@ func (b *Bot) rayTrace(level int32, resultMap map[swagger.DungeonsandtrollsPosit
 }
 
 func getPositionsForFloatCoords(x float32, y float32) swagger.DungeonsandtrollsPosition {
+	// I was worried about what position to return if the float values are exactly on the border between two positions.
+	// But it looks like this works fine.
+	// NOTE: This might be something to adjust if we see weird line of sight.
+	//			 E.g. if we see different LoS on right and left side of player or obstacle.
 	return swagger.DungeonsandtrollsPosition{
 		PositionX: int32(x),
 		PositionY: int32(y),

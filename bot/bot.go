@@ -91,8 +91,7 @@ func (b *Bot) Run3() *swagger.DungeonsandtrollsCommandsBatch {
 
 	// Add seed
 	rand.Seed(time.Now().UnixNano())
-	// ALWAYS YELL
-	random := rand.Intn(1)
+	random := rand.Intn(8)
 	if random <= 1 {
 		b.Logger.Debug("Picking a random yell ...")
 		randomYell := rand.Intn(8)
