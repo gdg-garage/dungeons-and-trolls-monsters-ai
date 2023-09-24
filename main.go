@@ -106,7 +106,7 @@ func main() {
 			zap.Any("response", fmt.Sprintf("%+v", resp)),
 			zap.String("httpResponse", fmt.Sprintf("%+v", httpResp)),
 		)
-		duration := 5 * time.Second
+		duration := 15 * time.Second
 		loggerWTick.Warnw("Sleeping ... TODO: only sleep till end of tick",
 			zap.Duration("duration", duration),
 		)
