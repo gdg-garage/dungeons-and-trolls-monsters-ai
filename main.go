@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"time"
 
 	swagger "github.com/gdg-garage/dungeons-and-trolls-go-client"
@@ -107,6 +108,16 @@ func main() {
 			zap.String("httpResponse", fmt.Sprintf("%+v", httpResp)),
 		)
 		duration := 15 * time.Second
+		if sleepTime, found := os.LookupEnv("DNT_SLEEP_TIME"); found {
+			val, err := strconv.Atoi(sleepTime)
+			if err == nil {
+				duration = time.Duration(val) * time.Second
+			} else {
+				loggerWTick.Errorw("Can't parse DNT_SLEEP_TIME env variable",
+					zap.Error(err),
+				)
+			}
+		}
 		loggerWTick.Warnw("Sleeping ... TODO: only sleep till end of tick",
 			zap.Duration("duration", duration),
 		)

@@ -34,8 +34,8 @@ func (b *Bot) randomWalk() *swagger.DungeonsandtrollsCommandsBatch {
 func (b *Bot) randomWalkFromPosition(level int32, pos swagger.DungeonsandtrollsPosition) *swagger.DungeonsandtrollsCommandsBatch {
 	// get random direction
 	for i := 0; i < 20; i++ {
-		distanceX := rand.Intn(4)
-		distanceY := rand.Intn(4)
+		distanceX := rand.Intn(8) - 4
+		distanceY := rand.Intn(8) - 4
 		newX := int(pos.PositionX) + distanceX
 		newY := int(pos.PositionY) + distanceY
 		currentMap := b.GameState.Map_.Levels[level]
@@ -43,6 +43,9 @@ func (b *Bot) randomWalkFromPosition(level int32, pos swagger.DungeonsandtrollsP
 		isFree := true
 		for _, objects := range currentMap.Objects {
 			if int(objects.Position.PositionX) == newX && int(objects.Position.PositionY) == newY && !objects.IsFree {
+				isFree = false
+			}
+			if !b.isInBounds(level, makePosition(int32(newX), int32(newY))) {
 				isFree = false
 			}
 		}

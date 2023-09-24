@@ -91,7 +91,7 @@ func (mo MapObject) GetFaction() string {
 func (b *Bot) IsFriendly(mo MapObject) bool {
 	// TODO: get my faction
 	// myFaction := b.GameState.Character.Faction
-	myFaction := "player"
+	myFaction := "monster"
 	faction := mo.GetFaction()
 	if faction == "neutral" {
 		return false

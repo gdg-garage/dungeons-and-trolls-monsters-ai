@@ -54,10 +54,27 @@ func (b *Bot) Run4() *swagger.DungeonsandtrollsCommandsForMonsters {
 	commands := swagger.DungeonsandtrollsCommandsForMonsters{}
 	commands.Commands = make(map[string]swagger.DungeonsandtrollsCommandsBatch)
 	for level_ := range b.GameState.Map_.Levels {
+		b.Logger.Infow("Handling level",
+			"level", level_,
+		)
 		level := int32(level_)
 		objects := b.getMapObjectsByCategoryForLevel(level)
+		if len(objects.Monsters) == 0 {
+			continue
+		}
 
 		for _, monster := range objects.Monsters {
+			b.Logger.Infow("Handling monster",
+				"monsterName", monster.GetName(),
+				"monsterID", monster.GetId(),
+			)
+			if monster.GetFaction() == "neutral" {
+				b.Logger.Warnw("Skipping neutral monster",
+					"monsterName", monster.GetName(),
+					"monsterID", monster.GetId(),
+				)
+				continue
+			}
 			id := monster.GetId()
 			attrs := *monster.MapObjects.Monsters[monster.Index].Attributes
 			if len(objects.Players) > 0 {
@@ -71,20 +88,21 @@ func (b *Bot) Run4() *swagger.DungeonsandtrollsCommandsForMonsters {
 					)
 					continue
 				}
-				attackingPlayer := false
-				for _, player := range objects.Players {
-					if player.MapObjects.Position.PositionX == monster.MapObjects.Position.PositionX && player.MapObjects.Position.PositionY == monster.MapObjects.Position.PositionY {
+				enemies := b.getEnemies(&objects)
+				attackingEnemy := false
+				for _, enemy := range enemies {
+					if enemy.MapObjects.Position.PositionX == monster.MapObjects.Position.PositionX && enemy.MapObjects.Position.PositionY == monster.MapObjects.Position.PositionY {
 						r := rand.Intn(int(len(skills2)))
-						commands.Commands[id] = *useSkill(skills2[r], player)
-						attackingPlayer = true
+						commands.Commands[id] = *useSkill(skills2[r], enemy)
+						attackingEnemy = true
 						break
 					}
 				}
-				if attackingPlayer {
+				if attackingEnemy {
 					continue
 				}
 				// Go to player
-				rp := rand.Intn(len(objects.Players))
+				rp := rand.Intn(len(enemies))
 				commands.Commands[id] = swagger.DungeonsandtrollsCommandsBatch{
 					Move: objects.Players[rp].MapObjects.Position,
 				}
@@ -102,6 +120,9 @@ func (b *Bot) Run4() *swagger.DungeonsandtrollsCommandsForMonsters {
 				continue
 			}
 			commands.Commands[id] = *b.randomWalkFromPosition(level, *monster.MapObjects.Position)
+		}
+		if level_ > 2 {
+			break
 		}
 	}
 	return &commands
