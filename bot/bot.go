@@ -55,7 +55,7 @@ func (b *Bot) Run4() *swagger.DungeonsandtrollsCommandsForMonsters {
 	commands.Commands = make(map[string]swagger.DungeonsandtrollsCommandsBatch)
 	for level_ := range b.GameState.Map_.Levels {
 		b.Logger.Infow("Handling level",
-			"level", level_,
+			"mapLevel", level_,
 		)
 		level := int32(level_)
 		objects := b.getMapObjectsByCategoryForLevel(level)
@@ -77,6 +77,7 @@ func (b *Bot) Run4() *swagger.DungeonsandtrollsCommandsForMonsters {
 			}
 			id := monster.GetId()
 			attrs := *monster.MapObjects.Monsters[monster.Index].Attributes
+			mapExt := b.calculateDistanceAndLineOfSight(level, *monster.MapObjects.Position)
 			if len(objects.Players) > 0 {
 				skills := getAllSkills(monster.MapObjects.Monsters[monster.Index].EquippedItems)
 				dmgSkills := b.filterDamageSkills2(attrs, skills)
@@ -102,7 +103,14 @@ func (b *Bot) Run4() *swagger.DungeonsandtrollsCommandsForMonsters {
 					continue
 				}
 				// Go to player
-				rp := rand.Intn(len(enemies))
+				magicDistance := 7 // distance thershold
+				closeEnemies := []MapObject{}
+				for _, enemy := range enemies {
+					if mapExt[*enemy.MapObjects.Position].distance < magicDistance {
+						closeEnemies = append(closeEnemies, enemy)
+					}
+				}
+				rp := rand.Intn(len(closeEnemies))
 				commands.Commands[id] = swagger.DungeonsandtrollsCommandsBatch{
 					Move: objects.Players[rp].MapObjects.Position,
 				}
@@ -111,7 +119,7 @@ func (b *Bot) Run4() *swagger.DungeonsandtrollsCommandsForMonsters {
 
 			// Idle
 			random := rand.Intn(4)
-			if random < 2 {
+			if random < 1 {
 				commands.Commands[id] = swagger.DungeonsandtrollsCommandsBatch{
 					Yell: &swagger.DungeonsandtrollsMessage{
 						Text: "I'm a monster!",
@@ -119,10 +127,7 @@ func (b *Bot) Run4() *swagger.DungeonsandtrollsCommandsForMonsters {
 				}
 				continue
 			}
-			commands.Commands[id] = *b.randomWalkFromPosition(level, *monster.MapObjects.Position)
-		}
-		if level_ > 2 {
-			break
+			commands.Commands[id] = *b.randomWalkFromPositionExt(level, *monster.MapObjects.Position, mapExt)
 		}
 	}
 	return &commands
@@ -149,7 +154,7 @@ func (b *Bot) Run3() *swagger.DungeonsandtrollsCommandsBatch {
 		}
 	}
 
-	b.calculateDistanceAndLineOfSight(state.CurrentLevel)
+	b.calculateDistanceAndLineOfSight(state.CurrentLevel, *state.CurrentPosition)
 
 	if mainHandItem == nil {
 		b.Logger.Debug("Looking for items to buy ...")

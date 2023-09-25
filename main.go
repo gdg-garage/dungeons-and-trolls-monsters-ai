@@ -90,7 +90,12 @@ func main() {
 		loggerWTick.Debug("Running bot ...")
 		id := "TODO"
 		bot := botPkg.New(&gameResp, id, memory, loggerWTick)
+		startTime := time.Now()
 		command := bot.Run4()
+		botDuration := time.Since(startTime)
+		loggerWTick.Infow("Bot finished",
+			zap.Duration("duration", botDuration),
+		)
 		loggerWTick.Infow("Sending monster commands",
 			zap.Any("commands", command.Commands),
 		)

@@ -13,7 +13,7 @@ type MapCellExt struct {
 	lineOfSight bool
 }
 
-func (b *Bot) calculateDistanceAndLineOfSight(level int32) map[swagger.DungeonsandtrollsPosition]MapCellExt {
+func (b *Bot) calculateDistanceAndLineOfSight(level int32, currentPosition swagger.DungeonsandtrollsPosition) map[swagger.DungeonsandtrollsPosition]MapCellExt {
 	currentMap := b.GameState.Map_.Levels[level]
 
 	// distance to obstacles used for line of sight
@@ -30,12 +30,12 @@ func (b *Bot) calculateDistanceAndLineOfSight(level int32) map[swagger.Dungeonsa
 		}
 	}
 
-	b.Logger.Infow("Original map -> (player: A, no data / free: ' ', wall: w, spawn: *, stairs: s, unknown: ?)")
+	b.Logger.Debugw("Original map -> (player: A, no data / free: ' ', wall: w, spawn: *, stairs: s, unknown: ?)")
 	for y := int32(0); y < currentMap.Height; y++ {
 		row := ""
 		for x := int32(0); x < currentMap.Width; x++ {
 			cell, found := resultMap[makePosition(x, y)]
-			if makePosition(x, y) == *b.GameState.CurrentPosition {
+			if makePosition(x, y) == currentPosition {
 				row += "A"
 			} else if !found {
 				row += " "
@@ -51,7 +51,7 @@ func (b *Bot) calculateDistanceAndLineOfSight(level int32) map[swagger.Dungeonsa
 				row += "?"
 			}
 		}
-		b.Logger.Infof("Map row: %s (y = %d)", row, y)
+		b.Logger.Debugf("Map row: %s (y = %d)", row, y)
 	}
 
 	// standard BFS stuff
@@ -59,7 +59,6 @@ func (b *Bot) calculateDistanceAndLineOfSight(level int32) map[swagger.Dungeonsa
 	queue := []swagger.DungeonsandtrollsPosition{}
 
 	// start from player
-	currentPosition := *b.GameState.CurrentPosition
 	// add current node to queue and add its distance to final map
 	queue = append(queue, currentPosition)
 	cell, found := resultMap[currentPosition]
@@ -108,7 +107,7 @@ func (b *Bot) calculateDistanceAndLineOfSight(level int32) map[swagger.Dungeonsa
 		}
 	}
 
-	b.Logger.Infow("Map with distances -> (player: A, no data: !, not reachable: ~, distance < 10: 0-9, distance >= 10: +)")
+	b.Logger.Debugw("Map with distances -> (player: A, no data: !, not reachable: ~, distance < 10: 0-9, distance >= 10: +)")
 	for y := int32(0); y < currentMap.Height; y++ {
 		row := ""
 		for x := int32(0); x < currentMap.Width; x++ {
@@ -125,9 +124,9 @@ func (b *Bot) calculateDistanceAndLineOfSight(level int32) map[swagger.Dungeonsa
 				row += "+"
 			}
 		}
-		b.Logger.Infof("Map row: %s (y = %d)", row, y)
+		b.Logger.Debugf("Map row: %s (y = %d)", row, y)
 	}
-	b.Logger.Infow("Map with line of sight -> (player: A, no data: !, line of sight: ' ', wall: w, no line of sight: ~)")
+	b.Logger.Debugw("Map with line of sight -> (player: A, no data: !, line of sight: ' ', wall: w, no line of sight: ~)")
 	for y := int32(0); y < currentMap.Height; y++ {
 		row := ""
 		for x := int32(0); x < currentMap.Width; x++ {
@@ -144,7 +143,7 @@ func (b *Bot) calculateDistanceAndLineOfSight(level int32) map[swagger.Dungeonsa
 				row += "~"
 			}
 		}
-		b.Logger.Infof("Map row: %s (y = %d)", row, y)
+		b.Logger.Debugf("Map row: %s (y = %d)", row, y)
 	}
 	return resultMap
 }
@@ -186,7 +185,7 @@ func (b *Bot) getLoS(level int32, resultMap map[swagger.DungeonsandtrollsPositio
 	// TODO: somehow round the value to prevent cache misses
 	losDist, found := distanceToFirstObstacle[slope]
 	if found {
-		b.Logger.Infow("LoS: found in cache",
+		b.Logger.Debugw("LoS: found in cache",
 			"playerPosition", pos1,
 			"position", pos2,
 			"slope", slope,
@@ -198,7 +197,7 @@ func (b *Bot) getLoS(level int32, resultMap map[swagger.DungeonsandtrollsPositio
 	}
 	losDist = b.rayTrace(level, resultMap, slope, x1, y1, x2, y2)
 	distanceToFirstObstacle[slope] = losDist
-	b.Logger.Infow("LoS: calculated",
+	b.Logger.Debugw("LoS: calculated",
 		"playerPosition", pos1,
 		"position", pos2,
 		"slope", slope,
