@@ -94,23 +94,35 @@ func main() {
 		command := bot.Run4()
 		botDuration := time.Since(startTime)
 		loggerWTick.Infow("Bot finished",
-			zap.Duration("duration", botDuration),
+			zap.Float32("durationSeconds", float32(botDuration.Seconds())),
 		)
 		loggerWTick.Infow("Sending monster commands",
 			zap.Any("commands", command.Commands),
 		)
 		// prettyprint.Command(loggerWTick, command)
 
+		loggerResponse := loggerWTick
 		resp, httpResp, err := client.DungeonsAndTrollsApi.DungeonsAndTrollsMonstersCommands(ctx, *command)
+		apiResp := swagger.NewAPIResponse(httpResp)
+		responseMessage := "<type mismatch>"
+		apiRespFromResp, ok := resp.(swagger.APIResponse)
+		if ok {
+			responseMessage = apiRespFromResp.Message
+		}
 		if err != nil {
-			loggerWTick.Errorw("HTTP error when sending commands",
+			// cast interface to swagger.DungeonsandtrollsCommandsForMonstersResponse
+			loggerResponse.Errorw("HTTP error when sending commands",
 				zap.Error(err),
-				zap.String("response", fmt.Sprintf("%+v", httpResp)),
+				zap.Any("apiResponse", apiResp),
+				zap.String("httpResponse", fmt.Sprintf("%+v", httpResp)),
+				zap.Any("apiResponseCasted.Message", responseMessage),
 			)
 		}
-		loggerWTick.Infow("HTTP response when sending commands",
+		loggerResponse.Infow("HTTP response when sending commands",
 			zap.Any("response", fmt.Sprintf("%+v", resp)),
+			zap.Any("apiResponse", apiResp),
 			zap.String("httpResponse", fmt.Sprintf("%+v", httpResp)),
+			zap.Any("apiResponseCasted", apiRespFromResp),
 		)
 		duration := 15 * time.Second
 		if sleepTime, found := os.LookupEnv("DNT_SLEEP_TIME"); found {
@@ -124,7 +136,7 @@ func main() {
 			}
 		}
 		loggerWTick.Warnw("Sleeping ... TODO: only sleep till end of tick",
-			zap.Duration("duration", duration),
+			zap.Float32("durationSeconds", float32(duration.Seconds())),
 		)
 		time.Sleep(duration)
 	}

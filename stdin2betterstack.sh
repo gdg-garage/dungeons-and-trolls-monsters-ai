@@ -8,6 +8,8 @@ if [ -z "$1" ]; then
   exit 1
 fi
 
+batch=20
+thisBatch=0
 while IFS=$'\n' read -r line; do
   printf '%s\n' "$line"
   curl -X POST \

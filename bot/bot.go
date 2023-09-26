@@ -67,9 +67,17 @@ func (b *Bot) Run4() *swagger.DungeonsandtrollsCommandsForMonsters {
 			b.Logger.Infow("Handling monster",
 				"monsterName", monster.GetName(),
 				"monsterID", monster.GetId(),
+				"monster", monster.MapObjects.Monsters[monster.Index],
 			)
 			if monster.GetFaction() == "neutral" {
 				b.Logger.Warnw("Skipping neutral monster",
+					"monsterName", monster.GetName(),
+					"monsterID", monster.GetId(),
+				)
+				continue
+			}
+			if monster.MapObjects.Monsters[monster.Index].Attributes.Life <= 0 {
+				b.Logger.Warnw("Skipping DEAD monster ☠",
 					"monsterName", monster.GetName(),
 					"monsterID", monster.GetId(),
 				)
@@ -80,8 +88,26 @@ func (b *Bot) Run4() *swagger.DungeonsandtrollsCommandsForMonsters {
 			mapExt := b.calculateDistanceAndLineOfSight(level, *monster.MapObjects.Position)
 			if len(objects.Players) > 0 {
 				skills := getAllSkills(monster.MapObjects.Monsters[monster.Index].EquippedItems)
+				b.Logger.Infow("All skills",
+					"monsterName", monster.GetName(),
+					"monsterID", monster.GetId(),
+					"skills", skills,
+					"numSkills", len(skills),
+				)
 				dmgSkills := b.filterDamageSkills2(attrs, skills)
+				b.Logger.Infow("Dmg skills",
+					"monsterName", monster.GetName(),
+					"monsterID", monster.GetId(),
+					"skills", dmgSkills,
+					"numSkills", len(dmgSkills),
+				)
 				skills2 := b.filterRequirementsMetSkills2(attrs, dmgSkills)
+				b.Logger.Infow("Requirements met skills",
+					"monsterName", monster.GetName(),
+					"monsterID", monster.GetId(),
+					"skills", skills2,
+					"numSkills", len(skills2),
+				)
 				if len(skills2) == 0 {
 					b.Logger.Errorw("No skills available",
 						"monsterName", monster.GetName(),
@@ -92,10 +118,23 @@ func (b *Bot) Run4() *swagger.DungeonsandtrollsCommandsForMonsters {
 				enemies := b.getEnemies(&objects)
 				attackingEnemy := false
 				for _, enemy := range enemies {
-					if enemy.MapObjects.Position.PositionX == monster.MapObjects.Position.PositionX && enemy.MapObjects.Position.PositionY == monster.MapObjects.Position.PositionY {
-						r := rand.Intn(int(len(skills2)))
-						commands.Commands[id] = *useSkill(skills2[r], enemy)
-						attackingEnemy = true
+					enemyDistance := mapExt[*enemy.MapObjects.Position].distance
+					for _, skill := range skills2 {
+						if enemyDistance <= calculateAttributesValue(attrs, *skill.Range_) {
+							commands.Commands[id] = *useSkill(skill, enemy)
+							b.Logger.Warnw("Attacking enemy",
+								"monsterName", monster.GetName(),
+								"monsterID", monster.GetId(),
+								"enemyName", enemy.GetName(),
+								"enemyID", enemy.GetId(),
+								"skillName", skill.Name,
+								"skill", skill,
+							)
+							attackingEnemy = true
+							break
+						}
+					}
+					if attackingEnemy {
 						break
 					}
 				}
@@ -110,6 +149,9 @@ func (b *Bot) Run4() *swagger.DungeonsandtrollsCommandsForMonsters {
 						closeEnemies = append(closeEnemies, enemy)
 					}
 				}
+				if len(closeEnemies) == 0 {
+					continue
+				}
 				rp := rand.Intn(len(closeEnemies))
 				commands.Commands[id] = swagger.DungeonsandtrollsCommandsBatch{
 					Move: objects.Players[rp].MapObjects.Position,
@@ -117,9 +159,49 @@ func (b *Bot) Run4() *swagger.DungeonsandtrollsCommandsForMonsters {
 				continue
 			}
 
-			// Idle
 			random := rand.Intn(4)
-			if random < 1 {
+			if random < 2 {
+				b.Logger.Infow("Picking a support skill ...")
+				// Rest & Heal, etc.
+				skills := getAllSkills(monster.MapObjects.Monsters[monster.Index].EquippedItems)
+				skills2 := b.filterRequirementsMetSkills2(attrs, skills)
+				if len(skills2) > 0 {
+					supportSkills := []swagger.DungeonsandtrollsSkill{}
+					for _, skill := range skills2 {
+						b.Logger.Infow("Checking skill",
+							"monsterName", monster.GetName(),
+							"monsterID", monster.GetId(),
+							"skillName", skill.Name,
+							"skill", skill,
+						)
+						if calculateAttributesValue(attrs, *skill.CasterEffects.Attributes.Life) > 0 ||
+							calculateAttributesValue(attrs, *skill.CasterEffects.Attributes.Mana) > 0 ||
+							calculateAttributesValue(attrs, *skill.CasterEffects.Attributes.Stamina) > 0 {
+							supportSkills = append(supportSkills, skill)
+						}
+					}
+					b.Logger.Infow("Support skills",
+						"monsterName", monster.GetName(),
+						"monsterID", monster.GetId(),
+						"skills", supportSkills,
+					)
+					if len(supportSkills) > 0 {
+						rp := rand.Intn(len(supportSkills))
+						b.Logger.Infow("Using support skill",
+							"monsterName", monster.GetName(),
+							"monsterID", monster.GetId(),
+							"skillName", supportSkills[rp].Name,
+							"skill", supportSkills[rp],
+						)
+						// Don't attack yourself 🙈
+						commands.Commands[id] = *useSkill(supportSkills[rp], monster)
+						continue
+					}
+				}
+			}
+
+			// Idle
+			if random < 3 {
 				commands.Commands[id] = swagger.DungeonsandtrollsCommandsBatch{
 					Yell: &swagger.DungeonsandtrollsMessage{
 						Text: "I'm a monster!",
