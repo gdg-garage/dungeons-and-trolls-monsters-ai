@@ -174,9 +174,31 @@ func (b *Bot) Run4() *swagger.DungeonsandtrollsCommandsForMonsters {
 							"skillName", skill.Name,
 							"skill", skill,
 						)
-						if calculateAttributesValue(attrs, *skill.CasterEffects.Attributes.Life) > 0 ||
-							calculateAttributesValue(attrs, *skill.CasterEffects.Attributes.Mana) > 0 ||
-							calculateAttributesValue(attrs, *skill.CasterEffects.Attributes.Stamina) > 0 {
+						casterEffects := skill.CasterEffects
+						if casterEffects == nil {
+							continue
+						}
+						skillAttributes := casterEffects.Attributes
+						if skillAttributes == nil {
+							continue
+						}
+						skillLife := skillAttributes.Life
+						skillMana := skillAttributes.Mana
+						skillStamina := skillAttributes.Stamina
+						b.Logger.Infow("Skill attributes",
+							"monsterName", monster.GetName(),
+							"monsterID", monster.GetId(),
+							"skillName", skill.Name,
+							"skill", skill,
+							"casterEffects", casterEffects,
+							"skillAttributes", skillAttributes,
+							"skillLife", skillLife,
+							"skillMana", skillMana,
+							"skillStamina", skillStamina,
+						)
+						if (skillLife != nil && calculateAttributesValue(attrs, *skillLife) > 0) ||
+							(skillMana != nil && calculateAttributesValue(attrs, *skillMana) > 0) ||
+							(skillStamina != nil && calculateAttributesValue(attrs, *skillStamina) > 0) {
 							supportSkills = append(supportSkills, skill)
 						}
 					}
