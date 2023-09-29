@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"strconv"
 	"time"
 
 	swagger "github.com/gdg-garage/dungeons-and-trolls-go-client"
@@ -73,6 +72,7 @@ func main() {
 	}
 
 	botDispatcher := bot.NewBotDispatcher(client, ctx, logger.Sugar())
+	backoff := 10 * time.Millisecond
 	for {
 		logger.Info("Fetching game state for NEW TICK ...")
 		// Use the client to make API requests
@@ -82,7 +82,14 @@ func main() {
 				zap.Error(err),
 				zap.Any("response", fmt.Sprintf("%+v", httpResp)),
 			)
+			logger.Info("Sleeping before retrying",
+				zap.Duration("duration", backoff),
+			)
+			time.Sleep(backoff)
+			backoff *= 2
+			continue
 		}
+		backoff = 10 * time.Millisecond
 		logger.Info("============= Game state fetched for NEW TICK =============")
 		err = botDispatcher.HandleTick(&gameResp)
 		if err != nil {
@@ -118,21 +125,6 @@ func main() {
 			zap.String("httpResponse", fmt.Sprintf("%+v", httpResp)),
 			zap.Any("apiResponseCasted", apiRespFromResp),
 		)
-		duration := 15 * time.Second
-		if sleepTime, found := os.LookupEnv("DNT_SLEEP_TIME"); found {
-			val, err := strconv.Atoi(sleepTime)
-			if err == nil {
-				duration = time.Duration(val) * time.Second
-			} else {
-				logger.Error("Can't parse DNT_SLEEP_TIME env variable",
-					zap.Error(err),
-				)
-			}
-		}
-		logger.Warn("Sleeping ... TODO: only sleep till end of tick",
-			zap.Float32("durationSeconds", float32(duration.Seconds())),
-		)
-		time.Sleep(duration)
 	}
 }
 

@@ -45,7 +45,13 @@ func (d *BotDispatcher) HandleTick(gameState *swagger.DungeonsandtrollsGameState
 	levels := d.getLevels(gameState)
 	for _, level := range levels {
 		// go d.HandleLevel(gameState, level)
-		d.HandleLevel(gameState, level)
+		err := d.HandleLevel(gameState, level)
+		if err != nil {
+			d.LoggerWTick.Error("Error when running monster AI for level",
+				zap.Error(err),
+				zap.Int32("mapLevel", level),
+			)
+		}
 	}
 	return nil
 }
@@ -53,9 +59,14 @@ func (d *BotDispatcher) HandleTick(gameState *swagger.DungeonsandtrollsGameState
 func (d *BotDispatcher) HandleLevel(gameState *swagger.DungeonsandtrollsGameState, level int32) error {
 	monsters := getMonstersDetailsForLevel(gameState, level)
 	commands := swagger.DungeonsandtrollsCommandsForMonsters{}
-	for i, _ := range monsters {
+	commands.Commands = make(map[string]swagger.DungeonsandtrollsCommandsBatch)
+	for i := range monsters {
 		monster := monsters[i]
-		botLogger := d.LoggerWTick.With("monsterID", monster.Id, "monsterName", monster.Name)
+		botLogger := d.LoggerWTick.With(
+			"monsterId", monster.Id,
+			"monsterName", monster.Name,
+			"mapLevel", monster.Level,
+		)
 		d.BotsLock.Lock()
 		bot, found := d.Bots[monster.Id]
 		if !found {
@@ -80,7 +91,10 @@ func (d *BotDispatcher) HandleLevel(gameState *swagger.DungeonsandtrollsGameStat
 			commands.Commands[monster.Id] = *cmd
 		}
 	}
-	return d.sendMonsterCommands(commands)
+	if len(commands.Commands) > 0 {
+		return d.sendMonsterCommands(commands)
+	}
+	return nil
 }
 
 func (d *BotDispatcher) getLevels(gameState *swagger.DungeonsandtrollsGameState) []int32 {
