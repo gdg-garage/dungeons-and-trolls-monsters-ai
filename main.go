@@ -9,7 +9,7 @@ import (
 	"time"
 
 	swagger "github.com/gdg-garage/dungeons-and-trolls-go-client"
-	botPkg "github.com/gdg-garage/dungeons-and-trolls-monsters-ai/bot"
+	"github.com/gdg-garage/dungeons-and-trolls-monsters-ai/bot"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -72,37 +72,31 @@ func main() {
 		return
 	}
 
-	memory := botPkg.BotMemory{}
+	botDispatcher := bot.NewBotDispatcher(client, ctx, logger.Sugar())
 	for {
 		logger.Info("Fetching game state for NEW TICK ...")
 		// Use the client to make API requests
 		gameResp, httpResp, err := client.DungeonsAndTrollsApi.DungeonsAndTrollsGame(ctx, nil)
 		if err != nil {
-			log.Println(err)
-			log.Println("HTTP error when fetching game state")
 			logger.Error("HTTP error when fetching game state",
 				zap.Error(err),
 				zap.Any("response", fmt.Sprintf("%+v", httpResp)),
 			)
 		}
-		loggerWTick := logger.Sugar().With(zap.String("tick", gameResp.Tick))
-		loggerWTick.Info("============= Game state fetched for NEW TICK =============")
-		loggerWTick.Debug("Running bot ...")
-		id := "TODO"
-		bot := botPkg.New(&gameResp, id, memory, loggerWTick)
-		startTime := time.Now()
-		command := bot.Run4()
-		botDuration := time.Since(startTime)
-		loggerWTick.Infow("Bot finished",
-			zap.Float32("durationSeconds", float32(botDuration.Seconds())),
-		)
-		loggerWTick.Infow("Sending monster commands",
-			zap.Any("commands", command.Commands),
-		)
+		logger.Info("============= Game state fetched for NEW TICK =============")
+		err = botDispatcher.HandleTick(&gameResp)
+		if err != nil {
+			logger.Error("Error when running monster AI",
+				zap.Error(err),
+			)
+			continue
+		}
 		// prettyprint.Command(loggerWTick, command)
 
-		loggerResponse := loggerWTick
-		resp, httpResp, err := client.DungeonsAndTrollsApi.DungeonsAndTrollsMonstersCommands(ctx, *command)
+		loggerResponse := logger
+		emptyCommand := swagger.DungeonsandtrollsCommandsForMonsters{}
+		// Wait until the end of the tick
+		resp, httpResp, err := client.DungeonsAndTrollsApi.DungeonsAndTrollsMonstersCommands(ctx, emptyCommand, nil)
 		apiResp := swagger.NewAPIResponse(httpResp)
 		responseMessage := "<type mismatch>"
 		apiRespFromResp, ok := resp.(swagger.APIResponse)
@@ -111,14 +105,14 @@ func main() {
 		}
 		if err != nil {
 			// cast interface to swagger.DungeonsandtrollsCommandsForMonstersResponse
-			loggerResponse.Errorw("HTTP error when sending commands",
+			loggerResponse.Error("HTTP error when sending commands",
 				zap.Error(err),
 				zap.Any("apiResponse", apiResp),
 				zap.String("httpResponse", fmt.Sprintf("%+v", httpResp)),
 				zap.Any("apiResponseCasted.Message", responseMessage),
 			)
 		}
-		loggerResponse.Infow("HTTP response when sending commands",
+		loggerResponse.Info("HTTP response when sending commands",
 			zap.Any("response", fmt.Sprintf("%+v", resp)),
 			zap.Any("apiResponse", apiResp),
 			zap.String("httpResponse", fmt.Sprintf("%+v", httpResp)),
@@ -130,12 +124,12 @@ func main() {
 			if err == nil {
 				duration = time.Duration(val) * time.Second
 			} else {
-				loggerWTick.Errorw("Can't parse DNT_SLEEP_TIME env variable",
+				logger.Error("Can't parse DNT_SLEEP_TIME env variable",
 					zap.Error(err),
 				)
 			}
 		}
-		loggerWTick.Warnw("Sleeping ... TODO: only sleep till end of tick",
+		logger.Warn("Sleeping ... TODO: only sleep till end of tick",
 			zap.Float32("durationSeconds", float32(duration.Seconds())),
 		)
 		time.Sleep(duration)
@@ -145,7 +139,7 @@ func main() {
 func respawn(ctx context.Context, logger *zap.SugaredLogger, client *swagger.APIClient) {
 	dummyPayload := ctx
 	logger.Warn("Respawning ...")
-	_, httpResp, err := client.DungeonsAndTrollsApi.DungeonsAndTrollsRespawn(ctx, dummyPayload)
+	_, httpResp, err := client.DungeonsAndTrollsApi.DungeonsAndTrollsRespawn(ctx, dummyPayload, nil)
 	if err != nil {
 		logger.Errorw("HTTP error when respawning",
 			zap.Error(err),

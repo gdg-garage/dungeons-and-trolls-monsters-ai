@@ -12,6 +12,8 @@ github.com/gdg-garage/dungeons-and-trolls-go-client v1.0.1 h1:IwZqmxqlXr5Fh9F8ob
 github.com/gdg-garage/dungeons-and-trolls-go-client v1.0.1/go.mod h1:S6RtQuhd4hirPZzcMRAbj56zm3hgTYEN+GzRJ2sT1Lg=
 github.com/gdg-garage/dungeons-and-trolls-go-client v1.1.1 h1:+2fuJpwh3DE1k2BH2cgGdHgPBjGqPkPeILoLdU7tMVI=
 github.com/gdg-garage/dungeons-and-trolls-go-client v1.1.1/go.mod h1:S6RtQuhd4hirPZzcMRAbj56zm3hgTYEN+GzRJ2sT1Lg=
+github.com/gdg-garage/dungeons-and-trolls-go-client v1.2.0 h1:DypsSzp6cOnw1xqHpLHnINtbKnhXsgtQ7gtf94izL8E=
+github.com/gdg-garage/dungeons-and-trolls-go-client v1.2.0/go.mod h1:S6RtQuhd4hirPZzcMRAbj56zm3hgTYEN+GzRJ2sT1Lg=
 github.com/golang/protobuf v1.5.0/go.mod h1:FsONVRAS9T7sI+LIUmWTfcYkHO4aIWwzhcaSAoJOfIk=
 github.com/golang/protobuf v1.5.2/go.mod h1:XVQd3VNwM+JqD3oG2Ue2ip4fOMUkwXdXDdiuN0vRsmY=
 github.com/golang/protobuf v1.5.3 h1:KhyjKVUg7Usr/dYsdSqoFveMYd5ko72D+zANwlG1mmg=

@@ -83,15 +83,11 @@ func (mo MapObject) GetFaction() string {
 		log.Println("ERROR: MapObject.GetFaction(): Unknown type")
 		return "unknown"
 	}
-	return "monster"
-	// TODO: get faction of mo
-	// return mo.MapObjects.Monsters[mo.Index].Faction
+	return mo.MapObjects.Monsters[mo.Index].Faction
 }
 
 func (b *Bot) IsFriendly(mo MapObject) bool {
-	// TODO: get my faction
-	// myFaction := b.GameState.Character.Faction
-	myFaction := "monster"
+	myFaction := b.Details.Monster.Faction
 	faction := mo.GetFaction()
 	if faction == "neutral" {
 		return false
