@@ -2,11 +2,11 @@ package bot
 
 import (
 	"context"
-	"fmt"
 	"sync"
 
 	"github.com/antihax/optional"
 	swagger "github.com/gdg-garage/dungeons-and-trolls-go-client"
+	"github.com/gdg-garage/dungeons-and-trolls-monsters-ai/swaggerutil"
 	"go.uber.org/zap"
 )
 
@@ -137,27 +137,7 @@ func (d *BotDispatcher) sendMonsterCommands(cmds swagger.DungeonsandtrollsComman
 	opts := swagger.DungeonsAndTrollsApiDungeonsAndTrollsMonstersCommandsOpts{
 		Blocking: optional.NewBool(false),
 	}
-	resp, httpResp, err := d.Client.DungeonsAndTrollsApi.DungeonsAndTrollsMonstersCommands(d.Ctx, cmds, &opts)
-	apiResp := swagger.NewAPIResponse(httpResp)
-	responseMessage := "<type mismatch>"
-	apiRespFromResp, ok := resp.(swagger.APIResponse)
-	if ok {
-		responseMessage = apiRespFromResp.Message
-	}
-	if err != nil {
-		// cast interface to swagger.DungeonsandtrollsCommandsForMonstersResponse
-		d.LoggerWTick.Error("HTTP error when sending commands",
-			zap.Error(err),
-			zap.Any("apiResponse", apiResp),
-			zap.String("httpResponse", fmt.Sprintf("%+v", httpResp)),
-			zap.Any("apiResponseCasted.Message", responseMessage),
-		)
-	}
-	d.LoggerWTick.Info("HTTP response when sending commands",
-		zap.Any("response", fmt.Sprintf("%+v", resp)),
-		zap.Any("apiResponse", apiResp),
-		zap.String("httpResponse", fmt.Sprintf("%+v", httpResp)),
-		zap.Any("apiResponseCasted", apiRespFromResp),
-	)
+	_, httpResp, err := d.Client.DungeonsAndTrollsApi.DungeonsAndTrollsMonstersCommands(d.Ctx, cmds, &opts)
+	swaggerutil.LogResponse(d.LoggerWTick, err, httpResp, "MonsterCommands", cmds)
 	return nil
 }

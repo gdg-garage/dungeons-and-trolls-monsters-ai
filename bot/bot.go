@@ -171,7 +171,7 @@ func (b *Bot) Run5() *swagger.DungeonsandtrollsCommandsBatch {
 					},
 				}
 			}
-			return b.randomWalkFromPositionExt(level, *b.Details.Position, *&b.BotState.MapExtended)
+			return b.randomWalkFromPositionExt(level, *b.Details.Position, b.BotState.MapExtended)
 		}
 	}
 	return nil
@@ -318,18 +318,4 @@ func (b *Bot) shop() *swagger.DungeonsandtrollsItem {
 		}
 	}
 	return nil
-}
-
-func coordsToPosition(coords swagger.DungeonsandtrollsCoordinates) *swagger.DungeonsandtrollsPosition {
-	return &swagger.DungeonsandtrollsPosition{
-		PositionX: coords.PositionX,
-		PositionY: coords.PositionY,
-	}
-}
-
-func positionToCoords(position swagger.DungeonsandtrollsPosition) *swagger.DungeonsandtrollsCoordinates {
-	return &swagger.DungeonsandtrollsCoordinates{
-		PositionX: position.PositionX,
-		PositionY: position.PositionY,
-	}
 }

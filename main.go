@@ -9,6 +9,7 @@ import (
 
 	swagger "github.com/gdg-garage/dungeons-and-trolls-go-client"
 	"github.com/gdg-garage/dungeons-and-trolls-monsters-ai/bot"
+	"github.com/gdg-garage/dungeons-and-trolls-monsters-ai/swaggerutil"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -78,10 +79,7 @@ func main() {
 		// Use the client to make API requests
 		gameResp, httpResp, err := client.DungeonsAndTrollsApi.DungeonsAndTrollsGame(ctx, nil)
 		if err != nil {
-			logger.Error("HTTP error when fetching game state",
-				zap.Error(err),
-				zap.Any("response", fmt.Sprintf("%+v", httpResp)),
-			)
+			swaggerutil.LogError(logger.Sugar(), err, httpResp, "Game", nil)
 			logger.Info("Sleeping before retrying",
 				zap.Duration("duration", backoff),
 			)
@@ -90,7 +88,7 @@ func main() {
 			continue
 		}
 		backoff = 10 * time.Millisecond
-		logger.Info("============= Game state fetched for NEW TICK =============")
+		logger.Info("================ Game state fetched for NEW TICK ================")
 		err = botDispatcher.HandleTick(&gameResp)
 		if err != nil {
 			logger.Error("Error when running monster AI",
@@ -103,28 +101,8 @@ func main() {
 		loggerResponse := logger
 		emptyCommand := swagger.DungeonsandtrollsCommandsForMonsters{}
 		// Wait until the end of the tick
-		resp, httpResp, err := client.DungeonsAndTrollsApi.DungeonsAndTrollsMonstersCommands(ctx, emptyCommand, nil)
-		apiResp := swagger.NewAPIResponse(httpResp)
-		responseMessage := "<type mismatch>"
-		apiRespFromResp, ok := resp.(swagger.APIResponse)
-		if ok {
-			responseMessage = apiRespFromResp.Message
-		}
-		if err != nil {
-			// cast interface to swagger.DungeonsandtrollsCommandsForMonstersResponse
-			loggerResponse.Error("HTTP error when sending commands",
-				zap.Error(err),
-				zap.Any("apiResponse", apiResp),
-				zap.String("httpResponse", fmt.Sprintf("%+v", httpResp)),
-				zap.Any("apiResponseCasted.Message", responseMessage),
-			)
-		}
-		loggerResponse.Info("HTTP response when sending commands",
-			zap.Any("response", fmt.Sprintf("%+v", resp)),
-			zap.Any("apiResponse", apiResp),
-			zap.String("httpResponse", fmt.Sprintf("%+v", httpResp)),
-			zap.Any("apiResponseCasted", apiRespFromResp),
-		)
+		_, httpResp, err = client.DungeonsAndTrollsApi.DungeonsAndTrollsMonstersCommands(ctx, emptyCommand, nil)
+		swaggerutil.LogResponse(loggerResponse.Sugar(), err, httpResp, "MonstersCommands (empty, blocking)", emptyCommand)
 	}
 }
 
@@ -132,10 +110,5 @@ func respawn(ctx context.Context, logger *zap.SugaredLogger, client *swagger.API
 	dummyPayload := ctx
 	logger.Warn("Respawning ...")
 	_, httpResp, err := client.DungeonsAndTrollsApi.DungeonsAndTrollsRespawn(ctx, dummyPayload, nil)
-	if err != nil {
-		logger.Errorw("HTTP error when respawning",
-			zap.Error(err),
-			zap.Any("response", fmt.Sprintf("%+v", httpResp)),
-		)
-	}
+	swaggerutil.LogResponse(logger, err, httpResp, "Respawn", nil)
 }
