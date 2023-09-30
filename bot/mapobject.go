@@ -102,10 +102,14 @@ func (b *Bot) IsFriendly(mo MapObject) bool {
 		return faction == "outlaw" || faction == "horror"
 	case "outlaw":
 		return faction == "monster"
+	case "horror":
+		return faction == "monster"
 	case "templar":
 		return faction == "player"
 	default:
-		log.Println("ERROR: IsFriendly(): Unknown faction")
+		b.Logger.Errorw("PANIC: IsFriendly(): Unknown faction",
+			"myFaction", myFaction,
+		)
 		return true
 	}
 }

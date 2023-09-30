@@ -1,9 +1,10 @@
 package bot
 
 import (
-	"log"
+	"fmt"
 
 	swagger "github.com/gdg-garage/dungeons-and-trolls-go-client"
+	"go.uber.org/zap"
 )
 
 /*
@@ -24,7 +25,7 @@ import (
 */
 
 func (b *Bot) calculateAttributesValue(attrs swagger.DungeonsandtrollsAttributes) int {
-	return calculateAttributesValue(*b.GameState.Character.Attributes, attrs)
+	return calculateAttributesValue(*b.Details.Monster.Attributes, attrs)
 }
 
 func calculateAttributesValue(myAttrs swagger.DungeonsandtrollsAttributes, attrs swagger.DungeonsandtrollsAttributes) int {
@@ -47,10 +48,19 @@ func calculateAttributesValue(myAttrs swagger.DungeonsandtrollsAttributes, attrs
 }
 
 func (b *Bot) areAttributeRequirementMet(attrs swagger.DungeonsandtrollsAttributes) bool {
-	return areAttributeRequirementMet(*b.GameState.Character.Attributes, attrs)
+	err := areAttributeRequirementMet(*b.Details.Monster.Attributes, attrs)
+	if err != nil {
+		b.Logger.Warnw("Attribute requirement not met",
+			zap.Error(err),
+			"myAttributes", *b.Details.Monster.Attributes,
+			"requiredAttributes", attrs,
+		)
+		return false
+	}
+	return true
 }
 
-func areAttributeRequirementMet(myAttrs swagger.DungeonsandtrollsAttributes, attrs swagger.DungeonsandtrollsAttributes) bool {
+func areAttributeRequirementMet(myAttrs swagger.DungeonsandtrollsAttributes, attrs swagger.DungeonsandtrollsAttributes) error {
 	if myAttrs.Strength >= attrs.Strength &&
 		myAttrs.Dexterity >= attrs.Dexterity &&
 		myAttrs.Intelligence >= attrs.Intelligence &&
@@ -64,70 +74,65 @@ func areAttributeRequirementMet(myAttrs swagger.DungeonsandtrollsAttributes, att
 		myAttrs.Life >= attrs.Life &&
 		myAttrs.Stamina >= attrs.Stamina &&
 		myAttrs.Mana >= attrs.Mana {
-		return true
+		return nil
 	}
-	// I bet this will be useful
 	if myAttrs.Strength < attrs.Strength {
-		log.Printf("Attribute check failed: Strength (have: %v < need: %v)\n", myAttrs.Strength, attrs.Strength)
-		return false
+		return fmt.Errorf("Attribute check failed: Strength (have: %v < need: %v)\n", myAttrs.Strength, attrs.Strength)
 	}
 	if myAttrs.Dexterity < attrs.Dexterity {
-		log.Printf("Attribute check failed: Dexterity (have: %v < need: %v)\n", myAttrs.Dexterity, attrs.Dexterity)
-		return false
+		return fmt.Errorf("Attribute check failed: Dexterity (have: %v < need: %v)\n", myAttrs.Dexterity, attrs.Dexterity)
 	}
 	if myAttrs.Intelligence < attrs.Intelligence {
-		log.Printf("Attribute check failed: Intelligence (have: %v < need: %v)\n", myAttrs.Intelligence, attrs.Intelligence)
-		return false
+		return fmt.Errorf("Attribute check failed: Intelligence (have: %v < need: %v)\n", myAttrs.Intelligence, attrs.Intelligence)
 	}
 	if myAttrs.Willpower < attrs.Willpower {
-		log.Printf("Attribute check failed: Willpower (have: %v < need: %v)\n", myAttrs.Willpower, attrs.Willpower)
-		return false
+		return fmt.Errorf("Attribute check failed: Willpower (have: %v < need: %v)\n", myAttrs.Willpower, attrs.Willpower)
 	}
 	if myAttrs.Constitution < attrs.Constitution {
-		log.Printf("Attribute check failed: Constitution (have: %v < need: %v)\n", myAttrs.Constitution, attrs.Constitution)
-		return false
+		return fmt.Errorf("Attribute check failed: Constitution (have: %v < need: %v)\n", myAttrs.Constitution, attrs.Constitution)
 	}
 	if myAttrs.SlashResist < attrs.SlashResist {
-		log.Printf("Attribute check failed: SlashResist (have: %v < need: %v)\n", myAttrs.SlashResist, attrs.SlashResist)
-		return false
+		return fmt.Errorf("Attribute check failed: SlashResist (have: %v < need: %v)\n", myAttrs.SlashResist, attrs.SlashResist)
 	}
 	if myAttrs.PierceResist < attrs.PierceResist {
-		log.Printf("Attribute check failed: PierceResist (have: %v < need: %v)\n", myAttrs.PierceResist, attrs.PierceResist)
-		return false
+		return fmt.Errorf("Attribute check failed: PierceResist (have: %v < need: %v)\n", myAttrs.PierceResist, attrs.PierceResist)
 	}
 	if myAttrs.FireResist < attrs.FireResist {
-		log.Printf("Attribute check failed: FireResist (have: %v < need: %v)\n", myAttrs.FireResist, attrs.FireResist)
-		return false
+		return fmt.Errorf("Attribute check failed: FireResist (have: %v < need: %v)\n", myAttrs.FireResist, attrs.FireResist)
 	}
 	if myAttrs.PoisonResist < attrs.PoisonResist {
-		log.Printf("Attribute check failed: PoisonResist (have: %v < need: %v)\n", myAttrs.PoisonResist, attrs.PoisonResist)
-		return false
+		return fmt.Errorf("Attribute check failed: PoisonResist (have: %v < need: %v)\n", myAttrs.PoisonResist, attrs.PoisonResist)
 	}
 	if myAttrs.ElectricResist < attrs.ElectricResist {
-		log.Printf("Attribute check failed: ElectricResist (have: %v < need: %v)\n", myAttrs.ElectricResist, attrs.ElectricResist)
-		return false
+		return fmt.Errorf("Attribute check failed: ElectricResist (have: %v < need: %v)\n", myAttrs.ElectricResist, attrs.ElectricResist)
 	}
 	if myAttrs.Life < attrs.Life {
-		log.Printf("Attribute check failed: Life (have: %v < need: %v)\n", myAttrs.Life, attrs.Life)
-		return false
+		return fmt.Errorf("Attribute check failed: Life (have: %v < need: %v)\n", myAttrs.Life, attrs.Life)
 	}
 	if myAttrs.Stamina < attrs.Stamina {
-		log.Printf("Attribute check failed: Stamina (have: %v < need: %v)\n", myAttrs.Stamina, attrs.Stamina)
-		return false
+		return fmt.Errorf("Attribute check failed: Stamina (have: %v < need: %v)\n", myAttrs.Stamina, attrs.Stamina)
 	}
 	if myAttrs.Mana < attrs.Mana {
-		log.Printf("Attribute check failed: Mana (have: %v < need: %v)\n", myAttrs.Mana, attrs.Mana)
-		return false
+		return fmt.Errorf("Attribute check failed: Mana (have: %v < need: %v)\n", myAttrs.Mana, attrs.Mana)
 	}
-	return false
+	return fmt.Errorf("PANIC: Attribute check failed with UNKNOWN REASON!")
 }
 
-func useSkill(skill swagger.DungeonsandtrollsSkill, target MapObject) *swagger.DungeonsandtrollsCommandsBatch {
+func (b *Bot) useSkill(skill swagger.DungeonsandtrollsSkill, target MapObject) *swagger.DungeonsandtrollsCommandsBatch {
+	b.Logger.Infow("Using skill",
+		"skillName", skill.Name,
+		"skill", skill,
+		"skillTargetType", skill.Target,
+		"target", target.GetName(),
+	)
 	if *skill.Target == swagger.CHARACTER_SkillTarget {
 		return &swagger.DungeonsandtrollsCommandsBatch{
 			Skill: &swagger.DungeonsandtrollsSkillUse{
 				SkillId:  skill.Id,
 				TargetId: target.GetId(),
+			},
+			Yell: &swagger.DungeonsandtrollsMessage{
+				Text: "Using skill " + skill.Name + "!",
 			},
 		}
 	}
@@ -140,6 +145,9 @@ func useSkill(skill swagger.DungeonsandtrollsSkill, target MapObject) *swagger.D
 					PositionY: target.MapObjects.Position.PositionY,
 				},
 			},
+			Yell: &swagger.DungeonsandtrollsMessage{
+				Text: "Using skill " + skill.Name + "!",
+			},
 		}
 	}
 	if *skill.Target == swagger.NONE_SkillTarget {
@@ -147,8 +155,14 @@ func useSkill(skill swagger.DungeonsandtrollsSkill, target MapObject) *swagger.D
 			Skill: &swagger.DungeonsandtrollsSkillUse{
 				SkillId: skill.Id,
 			},
+			Yell: &swagger.DungeonsandtrollsMessage{
+				Text: "Using skill " + skill.Name + "!",
+			},
 		}
 	}
-	log.Panicln("ERROR: Unknown skill target:", *skill.Target)
+	b.Logger.Errorw("PANIC: Unknown skill target",
+		"skillTarget", *skill.Target,
+		"skill", skill,
+	)
 	return nil
 }

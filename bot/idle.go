@@ -86,6 +86,10 @@ func (b *Bot) randomWalkFromPositionExt(level int32, pos swagger.Dungeonsandtrol
 			if !b.isInBounds(level, makePosition(int32(newX), int32(newY))) {
 				isFree = false
 			}
+			if len(objects.Monsters) > 0 && i < 10 {
+				// Don't stand on other monsters (at least for the first 10 iterations)
+				isFree = false
+			}
 		}
 		if !isFree {
 			continue

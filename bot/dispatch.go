@@ -88,6 +88,21 @@ func (d *BotDispatcher) HandleLevel(gameState *swagger.DungeonsandtrollsGameStat
 		bot.Details = monster
 		cmd := bot.Run5()
 		if cmd != nil {
+			text := ""
+			if bot.BotState.PrefixYell != "" {
+				text += bot.BotState.PrefixYell
+				if bot.BotState.Yell != "" {
+					text += " - "
+				}
+			}
+			if bot.BotState.Yell != "" {
+				text += bot.BotState.Yell
+			}
+			if text != "" {
+				cmd.Yell = &swagger.DungeonsandtrollsMessage{
+					Text: text,
+				}
+			}
 			commands.Commands[monster.Id] = *cmd
 		}
 	}
