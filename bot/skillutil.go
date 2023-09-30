@@ -132,7 +132,13 @@ func (b *Bot) useSkill(skill swagger.DungeonsandtrollsSkill, target MapObject) *
 				TargetId: target.GetId(),
 			},
 			Yell: &swagger.DungeonsandtrollsMessage{
-				Text: "Using skill " + skill.Name + "!",
+				Text: fmt.Sprintf(
+					"Using skill %s! -> [%d, %d] %s",
+					skill.Name,
+					target.MapObjects.Position.PositionX,
+					target.MapObjects.Position.PositionY,
+					target.GetName(),
+				),
 			},
 		}
 	}
@@ -146,7 +152,11 @@ func (b *Bot) useSkill(skill swagger.DungeonsandtrollsSkill, target MapObject) *
 				},
 			},
 			Yell: &swagger.DungeonsandtrollsMessage{
-				Text: "Using skill " + skill.Name + "!",
+				Text: fmt.Sprintf(
+					"Using skill %s! -> [%d, %d]",
+					skill.Name,
+					target.MapObjects.Position.PositionX,
+					target.MapObjects.Position.PositionY),
 			},
 		}
 	}
@@ -156,7 +166,7 @@ func (b *Bot) useSkill(skill swagger.DungeonsandtrollsSkill, target MapObject) *
 				SkillId: skill.Id,
 			},
 			Yell: &swagger.DungeonsandtrollsMessage{
-				Text: "Using skill " + skill.Name + "!",
+				Text: "Using skill " + skill.Name + ".",
 			},
 		}
 	}
@@ -165,4 +175,47 @@ func (b *Bot) useSkill(skill swagger.DungeonsandtrollsSkill, target MapObject) *
 		"skill", skill,
 	)
 	return nil
+}
+
+func fillSkillAttributes(skillAttrs swagger.DungeonsandtrollsSkillAttributes) *swagger.DungeonsandtrollsSkillAttributes {
+	if skillAttrs.Strength == nil {
+		skillAttrs.Strength = &swagger.DungeonsandtrollsAttributes{}
+	}
+	if skillAttrs.Dexterity == nil {
+		skillAttrs.Dexterity = &swagger.DungeonsandtrollsAttributes{}
+	}
+	if skillAttrs.Intelligence == nil {
+		skillAttrs.Intelligence = &swagger.DungeonsandtrollsAttributes{}
+	}
+	if skillAttrs.Willpower == nil {
+		skillAttrs.Willpower = &swagger.DungeonsandtrollsAttributes{}
+	}
+	if skillAttrs.Constitution == nil {
+		skillAttrs.Constitution = &swagger.DungeonsandtrollsAttributes{}
+	}
+	if skillAttrs.SlashResist == nil {
+		skillAttrs.SlashResist = &swagger.DungeonsandtrollsAttributes{}
+	}
+	if skillAttrs.PierceResist == nil {
+		skillAttrs.PierceResist = &swagger.DungeonsandtrollsAttributes{}
+	}
+	if skillAttrs.FireResist == nil {
+		skillAttrs.FireResist = &swagger.DungeonsandtrollsAttributes{}
+	}
+	if skillAttrs.PoisonResist == nil {
+		skillAttrs.PoisonResist = &swagger.DungeonsandtrollsAttributes{}
+	}
+	if skillAttrs.ElectricResist == nil {
+		skillAttrs.ElectricResist = &swagger.DungeonsandtrollsAttributes{}
+	}
+	if skillAttrs.Life == nil {
+		skillAttrs.Life = &swagger.DungeonsandtrollsAttributes{}
+	}
+	if skillAttrs.Stamina == nil {
+		skillAttrs.Stamina = &swagger.DungeonsandtrollsAttributes{}
+	}
+	if skillAttrs.Mana == nil {
+		skillAttrs.Mana = &swagger.DungeonsandtrollsAttributes{}
+	}
+	return &skillAttrs
 }

@@ -1,6 +1,7 @@
 package bot
 
 import (
+	"math"
 	"math/rand"
 
 	swagger "github.com/gdg-garage/dungeons-and-trolls-go-client"
@@ -37,7 +38,7 @@ type Bot struct {
 	Logger *zap.SugaredLogger
 }
 
-func (b *Bot) Run5() *swagger.DungeonsandtrollsCommandsBatch {
+func (b *Bot) Run() *swagger.DungeonsandtrollsCommandsBatch {
 	b.BotState.Self = NewMonsterMapObject(*b.Details.MapObjects, b.Details.Index)
 	b.BotState.Yell = ""
 	b.BotState.PrefixYell = ""
@@ -52,10 +53,10 @@ func (b *Bot) Run5() *swagger.DungeonsandtrollsCommandsBatch {
 	)
 	if monster.Faction == "neutral" {
 		b.Logger.Warnw("Skipping neutral monster")
-		return b.Yell("I'm a neutral monster!")
+		return b.Yell("I'm a chest ... I think")
 	}
 	if monster.Attributes.Life <= 0 {
-		b.Logger.Warnw("Skipping DEAD monster ☠")
+		b.Logger.Warnw("Skipping DEAD monster")
 		return nil
 	}
 	// calculate distance and line of sight
@@ -67,12 +68,18 @@ func (b *Bot) Run5() *swagger.DungeonsandtrollsCommandsBatch {
 		return combatCmd
 	}
 
-	random := rand.Intn(2)
+	random := rand.Intn(5)
 	switch random {
 	case 0:
 		return b.rest()
 	case 1:
-		return b.randomWalkFromPositionExt(level, *b.Details.Position, b.BotState.MapExtended)
+		fallthrough
+	case 2:
+		return b.randomWalk()
+	case 3:
+		fallthrough
+	case 4:
+		return b.jumpAway()
 	default:
 		return b.Yell("Nothing to do ...")
 	}
@@ -87,7 +94,7 @@ func (b *Bot) combat() *swagger.DungeonsandtrollsCommandsBatch {
 		"skills", skills,
 		"numSkills", len(skills),
 	)
-	dmgSkills := b.filterDamageSkills2(*b.Details.Monster.Attributes, skills)
+	dmgSkills := b.filterDamageSkills(skills)
 	if len(skills) > 0 && len(dmgSkills) == 0 {
 		b.BotState.PrefixYell = "NO DMG SKILLS!"
 		b.Logger.Errorw("NO DMG SKILLS!",
@@ -103,7 +110,12 @@ func (b *Bot) combat() *swagger.DungeonsandtrollsCommandsBatch {
 	}
 	if len(dmgSkills)-len(skills2) >= 2 {
 		b.BotState.PrefixYell = "Combat rest"
-		return b.rest()
+		random := rand.Intn(2)
+		if random == 0 {
+			return b.rest()
+		} else {
+			return b.jumpAway()
+		}
 	}
 	if len(dmgSkills) > 0 && len(skills2) == 0 {
 		b.BotState.PrefixYell = "Out of stamina (?)"
@@ -125,15 +137,18 @@ func (b *Bot) combat() *swagger.DungeonsandtrollsCommandsBatch {
 	)
 	var bestSkill *swagger.DungeonsandtrollsSkill
 	bestDmg := int32(0)
-	bestEnemy := &MapObject{}
-	for _, enemy := range enemies {
-		for _, skill := range skills2 {
+	bestEnemy := MapObject{}
+	for j := range enemies {
+		enemy := enemies[j]
+		for i := range skills2 {
+			skill := skills2[i]
 			skillResult := b.evaluateSkill(skill, enemy)
 			b.Logger.Infow("Skill evaluated",
 				"skillName", skill.Name,
 				"skill", skill,
 				zap.Any("skillResult", skillResult),
 				"position", enemy.MapObjects.Position,
+				"myPosition", b.Details.Position,
 			)
 			if skillResult != nil && skillResult.Damage > bestDmg {
 				b.Logger.Infow("Found better skill",
@@ -141,10 +156,11 @@ func (b *Bot) combat() *swagger.DungeonsandtrollsCommandsBatch {
 					"skill", skill,
 					"damage", skillResult.Damage,
 					"position", enemy.MapObjects.Position,
+					"myPosition", b.Details.Position,
 				)
 				bestSkill = &skill
 				bestDmg = skillResult.Damage
-				bestEnemy = &enemy
+				bestEnemy = enemy
 			}
 		}
 	}
@@ -153,15 +169,18 @@ func (b *Bot) combat() *swagger.DungeonsandtrollsCommandsBatch {
 			"skillName", bestSkill.Name,
 			"skill", bestSkill,
 			"damage", bestDmg,
+			"targetId", bestEnemy.GetId(),
 			"targetName", bestEnemy.GetName(),
+			"targetFaction", bestEnemy.GetFaction(),
 			"position", bestEnemy.MapObjects.Position,
 			"myPosition", b.Details.Position,
+			"myFaction", b.Details.Monster.Faction,
 		)
-		return b.useSkill(*bestSkill, *bestEnemy)
+		return b.useSkill(*bestSkill, bestEnemy)
 	}
 	b.Logger.Warnw("No skill chosen")
 
-	random := rand.Intn(2)
+	random := rand.Intn(3)
 	switch random {
 	case 0:
 		return b.rest()
@@ -195,17 +214,16 @@ func (b *Bot) moveTowardsEnemy(enemies []MapObject) *swagger.DungeonsandtrollsCo
 func (b *Bot) rest() *swagger.DungeonsandtrollsCommandsBatch {
 	b.Logger.Debugw("Picking a support skill ...")
 	// Rest & Heal, etc.
-	skills := getAllSkills(b.Details.Monster.EquippedItems)
-	skills2 := b.filterRequirementsMetSkills(skills)
-	if len(skills2) <= 0 {
+	allSkills := getAllSkills(b.Details.Monster.EquippedItems)
+	skills := b.filterRequirementsMetSkills(allSkills)
+	if len(skills) <= 0 {
 		return nil
 	}
-	supportSkills := []swagger.DungeonsandtrollsSkill{}
-	for _, skill := range skills2 {
-		b.Logger.Debugw("Checking skill",
-			"skillName", skill.Name,
-			"skill", skill,
-		)
+	var bestSkill *swagger.DungeonsandtrollsSkill
+	bestSkill = nil
+	bestScore := float32(0)
+	for i := range skills {
+		skill := skills[i]
 		casterEffects := skill.CasterEffects
 		if casterEffects == nil {
 			continue
@@ -214,35 +232,98 @@ func (b *Bot) rest() *swagger.DungeonsandtrollsCommandsBatch {
 		if skillAttributes == nil {
 			continue
 		}
-		skillLife := skillAttributes.Life
-		skillMana := skillAttributes.Mana
-		skillStamina := skillAttributes.Stamina
-		b.Logger.Debugw("Skill attributes",
-			"skillName", skill.Name,
-			"skill", skill,
-			"casterEffects", casterEffects,
-			"skillAttributes", skillAttributes,
-			"skillLife", skillLife,
-			"skillMana", skillMana,
-			"skillStamina", skillStamina,
-		)
-		attrs := b.Details.Monster.Attributes
-		if (skillLife != nil && calculateAttributesValue(*attrs, *skillLife) > 0) ||
-			(skillMana != nil && calculateAttributesValue(*attrs, *skillMana) > 0) ||
-			(skillStamina != nil && calculateAttributesValue(*attrs, *skillStamina) > 0) {
-			supportSkills = append(supportSkills, skill)
+		// TODO: also check target attributes
+		score := b.scoreVitals(skillAttributes, &skill)
+		if score > bestScore {
+			bestScore = score
+			bestSkill = &skill
 		}
 	}
-	if len(supportSkills) <= 0 {
+	if bestSkill == nil {
+		b.Logger.Warnw("No support skill chosen")
 		return nil
 	}
-	rp := rand.Intn(len(supportSkills))
-	// TODO: Don't attack yourself 🙈
-	b.Logger.Infow("Picked support skill",
-		"allSupportSkills", supportSkills,
-		"pickedSkill", supportSkills[rp],
+	b.Logger.Infow("Best support skill",
+		"skillName", bestSkill.Name,
+		"skill", bestSkill,
+		"vitalsScore", bestScore,
+		"skillTargetType", bestSkill.Target,
 	)
-	return b.useSkill(supportSkills[rp], b.BotState.Self)
+	if *bestSkill.Target != swagger.NONE_SkillTarget {
+		b.Logger.Warnw("Picking self as target for support skill - might not be a good idea")
+	}
+	return b.useSkill(*bestSkill, b.BotState.Self)
+}
+
+// Get vitals score for skill
+// Tells you how much the skill will improve your resources (life, stamina, mana)
+// Can be used for both casterEffect and targetEffect skills
+func (b *Bot) scoreVitals(skillAttributes *swagger.DungeonsandtrollsSkillAttributes, skill *swagger.DungeonsandtrollsSkill) float32 {
+	skillAttributes = fillSkillAttributes(*skillAttributes)
+	skillLifeGain := float32(b.calculateAttributesValue(*skillAttributes.Life)) - skill.Cost.Life
+	skillStaminaGain := float32(b.calculateAttributesValue(*skillAttributes.Stamina)) - skill.Cost.Stamina
+	skillManaGain := float32(b.calculateAttributesValue(*skillAttributes.Mana)) - skill.Cost.Mana
+
+	lifePercentage := b.Details.Monster.Attributes.Life / b.Details.Monster.MaxAttributes.Life
+	staminaPercentage := b.Details.Monster.Attributes.Stamina / b.Details.Monster.MaxAttributes.Stamina
+	if math.IsNaN(float64(staminaPercentage)) {
+		staminaPercentage = 0
+	}
+	manaPercentage := b.Details.Monster.Attributes.Mana / b.Details.Monster.MaxAttributes.Mana
+	if math.IsNaN(float64(manaPercentage)) {
+		manaPercentage = 0
+	}
+	score := b.scoreVitalsFunc(lifePercentage, staminaPercentage, manaPercentage)
+
+	lifePercentageAfter := (b.Details.Monster.Attributes.Life + skillLifeGain) / b.Details.Monster.MaxAttributes.Life
+	staminaPercentageAfter := (b.Details.Monster.Attributes.Stamina + skillStaminaGain) / b.Details.Monster.MaxAttributes.Stamina
+	if math.IsNaN(float64(staminaPercentageAfter)) {
+		staminaPercentageAfter = 0
+	}
+	manaPercentageAfter := (b.Details.Monster.Attributes.Mana + skillManaGain) / b.Details.Monster.MaxAttributes.Mana
+	if math.IsNaN(float64(manaPercentageAfter)) {
+		manaPercentageAfter = 0
+	}
+	scoreAfter := b.scoreVitalsFunc(lifePercentageAfter, staminaPercentageAfter, manaPercentageAfter)
+
+	scoreDiff := scoreAfter - score
+
+	b.Logger.Infow("Skill vitals score",
+		"skillName", skill.Name,
+		"skill", skill,
+		"skillAttributes", skillAttributes,
+		"lifeGain", skillLifeGain,
+		"staminaGain", skillStaminaGain,
+		"manaGain", skillManaGain,
+		"lifePercentage", lifePercentage,
+		"life", b.Details.Monster.Attributes.Life,
+		"lifeMax", b.Details.Monster.MaxAttributes.Life,
+		"staminaPercentage", staminaPercentage,
+		"stamina", b.Details.Monster.Attributes.Stamina,
+		"staminaMax", b.Details.Monster.MaxAttributes.Stamina,
+		"manaPercentage", manaPercentage,
+		"mana", b.Details.Monster.Attributes.Mana,
+		"manaMax", b.Details.Monster.MaxAttributes.Mana,
+		"lifePercentageAfter", lifePercentageAfter,
+		"staminaPercentageAfter", staminaPercentageAfter,
+		"manaPercentageAfter", manaPercentageAfter,
+		"vitalsScore", score,
+		"vitalsScoreAfter", scoreAfter,
+		"vitalsScoreDiff", scoreDiff,
+	)
+	return scoreDiff
+}
+
+func (b *Bot) scoreVitalsFunc(lifePercentage, staminaPercentage, manaPercentage float32) float32 {
+	f := func(x float32) float32 {
+		if x > 1 {
+			// cap score at 100%
+			x = 1
+		}
+		// adding 2 just to make the score usually positive (50% resource == 0 score)
+		return 2 - (float32(1) / x)
+	}
+	return 4*f(lifePercentage) + 2*f(staminaPercentage) + f(manaPercentage)
 }
 
 func (b *Bot) shop() *swagger.DungeonsandtrollsItem {

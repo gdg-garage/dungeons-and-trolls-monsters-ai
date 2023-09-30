@@ -43,6 +43,10 @@ func (b *Bot) evaluateSkill(skill swagger.DungeonsandtrollsSkill, target MapObje
 		b.Logger.Infow("Enemy out of skill range")
 		return nil
 	}
+	if !b.BotState.MapExtended[*targetPosition].lineOfSight {
+		b.Logger.Infow("Enemy is not in line of sight")
+		return nil
+	}
 
 	damage := b.calculateAttributesValue(*skill.DamageAmount)
 	switch *skill.Target {

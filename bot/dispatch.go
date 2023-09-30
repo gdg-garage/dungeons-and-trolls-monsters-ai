@@ -92,7 +92,7 @@ func (d *BotDispatcher) HandleLevel(gameState *swagger.DungeonsandtrollsGameStat
 		bot.Logger = botLogger
 		bot.GameState = gameState
 		bot.Details = monster
-		cmd := bot.Run5()
+		cmd := bot.Run()
 		if cmd != nil {
 			text := ""
 			if bot.BotState.PrefixYell != "" {
@@ -111,7 +111,8 @@ func (d *BotDispatcher) HandleLevel(gameState *swagger.DungeonsandtrollsGameStat
 			}
 			commands.Commands[monster.Id] = *cmd
 			// XXX: send individually
-			sendIndividually := true
+			sendIndividually := false
+			sendAsynchronously := true
 			if sendIndividually {
 				commandsCopy := swagger.DungeonsandtrollsCommandsForMonsters{
 					Commands: make(map[string]swagger.DungeonsandtrollsCommandsBatch),
@@ -119,19 +120,26 @@ func (d *BotDispatcher) HandleLevel(gameState *swagger.DungeonsandtrollsGameStat
 				for k, v := range commands.Commands {
 					commandsCopy.Commands[k] = v
 				}
-				go d.sendMonsterCommands(commandsCopy)
+				if sendAsynchronously {
+					go d.sendMonsterCommands(commandsCopy)
+				} else {
+					d.sendMonsterCommands(commandsCopy)
+				}
 				commands.Commands = make(map[string]swagger.DungeonsandtrollsCommandsBatch)
 			}
 		}
 	}
 	if len(commands.Commands) > 0 {
-		return d.sendMonsterCommands(commands)
+		go d.sendMonsterCommands(commands)
 	}
 	return nil
 }
 
 func (d *BotDispatcher) getLevels(gameState *swagger.DungeonsandtrollsGameState) []int32 {
 	var levels []int32
+	if gameState == nil || gameState.Map_ == nil {
+		return levels
+	}
 	for _, level := range gameState.Map_.Levels {
 		levels = append(levels, level.Level)
 	}

@@ -89,16 +89,6 @@ func (b *Bot) filterDamageSkills(skills []swagger.DungeonsandtrollsSkill) []swag
 	return filtered
 }
 
-func (b *Bot) filterDamageSkills2(attrs swagger.DungeonsandtrollsAttributes, skills []swagger.DungeonsandtrollsSkill) []swagger.DungeonsandtrollsSkill {
-	filtered := []swagger.DungeonsandtrollsSkill{}
-	for _, skill := range skills {
-		if calculateAttributesValue(attrs, *skill.DamageAmount) > 0 {
-			filtered = append(filtered, skill)
-		}
-	}
-	return filtered
-}
-
 // Healing skills
 
 func (b *Bot) filterHealingSkills(skills []swagger.DungeonsandtrollsSkill) []swagger.DungeonsandtrollsSkill {

@@ -10,14 +10,21 @@ import (
 func (b *Bot) jumpAway() *swagger.DungeonsandtrollsCommandsBatch {
 	allSkills := getAllSkills(b.Details.Monster.EquippedItems)
 	skills := b.filterMovementSkills(allSkills)
+	b.Logger.Infow("Jumping away ...",
+		"moveSkills", skills,
+	)
 	if len(skills) == 0 {
 		b.Logger.Infow("No movement skills (to jump away)")
 		return nil
 	}
 	reqSkills := b.filterRequirementsMetSkills(skills)
 	if len(reqSkills) == 0 {
-		return b.rest()
-		// TODO: implement moveAway ?
+		b.Logger.Infow("No movement skills that I have resources for (to jump away)")
+		random := rand.Intn(2)
+		if random == 0 {
+			return b.rest()
+		}
+		return b.randomWalk()
 	}
 
 	skillsByRange := map[int][]swagger.DungeonsandtrollsSkill{}
@@ -43,6 +50,10 @@ func (b *Bot) jumpAway() *swagger.DungeonsandtrollsCommandsBatch {
 			// Prefer not to walk into other monsters
 			continue
 		}
+		b.Logger.Infow("Testing position for jump",
+			"position", makePosition(newX, newY),
+			"distance", tileInfo.distance,
+		)
 		skillsWithRange, found := skillsByRange[tileInfo.distance]
 		if found && len(skillsWithRange) > 0 {
 			random := rand.Intn(len(skillsWithRange))
@@ -67,6 +78,12 @@ func (b *Bot) MoveSkillXY(skill *swagger.DungeonsandtrollsSkill, x, y int32) *sw
 }
 
 func (b *Bot) MoveSkill(skill *swagger.DungeonsandtrollsSkill, position *swagger.DungeonsandtrollsPosition) *swagger.DungeonsandtrollsCommandsBatch {
+	b.Logger.Infow("Jumping! (move skill)",
+		"skill", skill,
+		"position", position,
+		"myPosition", b.Details.Position,
+		"range", b.calculateAttributesValue(*skill.Range_),
+	)
 	return &swagger.DungeonsandtrollsCommandsBatch{
 		Skill: &swagger.DungeonsandtrollsSkillUse{
 			SkillId:  skill.Id,
