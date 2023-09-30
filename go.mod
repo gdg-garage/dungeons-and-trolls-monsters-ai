@@ -2,10 +2,9 @@ module github.com/gdg-garage/dungeons-and-trolls-monsters-ai
 
 go 1.19
 
-require github.com/gdg-garage/dungeons-and-trolls-go-client v1.2.0
-
 require (
 	github.com/antihax/optional v1.0.0 // indirect
+	github.com/gdg-garage/dungeons-and-trolls-go-client v1.3.1 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
 	go.uber.org/multierr v1.10.0 // indirect
 	go.uber.org/zap v1.26.0 // indirect
