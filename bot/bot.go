@@ -39,6 +39,8 @@ type Bot struct {
 
 func (b *Bot) Run5() *swagger.DungeonsandtrollsCommandsBatch {
 	b.BotState.Self = NewMonsterMapObject(*b.Details.MapObjects, b.Details.Index)
+	b.BotState.Yell = ""
+	b.BotState.PrefixYell = ""
 	monster := b.Details.Monster
 	// monsterTileObjects := b.Details.MapObjects
 	level := b.Details.Level
@@ -46,6 +48,7 @@ func (b *Bot) Run5() *swagger.DungeonsandtrollsCommandsBatch {
 
 	b.Logger.Infow("Handling monster",
 		"monster", monster,
+		"position", position,
 	)
 	if monster.Faction == "neutral" {
 		b.Logger.Warnw("Skipping neutral monster")
@@ -148,9 +151,11 @@ func (b *Bot) combat() *swagger.DungeonsandtrollsCommandsBatch {
 	if bestSkill != nil {
 		b.Logger.Infow("Using best skill available",
 			"skillName", bestSkill.Name,
-			"skill", bestDmg,
+			"skill", bestSkill,
 			"damage", bestDmg,
 			"targetName", bestEnemy.GetName(),
+			"position", bestEnemy.MapObjects.Position,
+			"myPosition", b.Details.Position,
 		)
 		return b.useSkill(*bestSkill, *bestEnemy)
 	}
@@ -179,13 +184,12 @@ func (b *Bot) moveTowardsEnemy(enemies []MapObject) *swagger.DungeonsandtrollsCo
 	}
 	rp := rand.Intn(len(closeEnemies))
 	b.BotState.Yell = "I'm coming for you " + closeEnemies[rp].GetName() + "!"
+	b.Logger.Infow("I'm coming for you!",
+		"targetName", closeEnemies[rp].GetName(),
+	)
 	return &swagger.DungeonsandtrollsCommandsBatch{
 		Move: closeEnemies[rp].MapObjects.Position,
 	}
-}
-
-func (b *Bot) jumpAway() *swagger.DungeonsandtrollsCommandsBatch {
-	return nil
 }
 
 func (b *Bot) rest() *swagger.DungeonsandtrollsCommandsBatch {

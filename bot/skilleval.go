@@ -30,8 +30,15 @@ func (b *Bot) evaluateSkill(skill swagger.DungeonsandtrollsSkill, target MapObje
 		b.Logger.Infow("Skill attributes cost requirement not met")
 		return nil
 	}
+	// TODO: check out of combat
+
 	casterPostion := b.Details.Position
 	targetPosition := b.getSkillTargetPosition(&skill, &target)
+	b.Logger.Infow("Checking distance",
+		"casterPostion", casterPostion,
+		"targetPosition", targetPosition,
+		"manhattanDistance", manhattanDistance(*casterPostion, *targetPosition),
+	)
 	if manhattanDistance(*casterPostion, *targetPosition) > int32(b.calculateAttributesValue(*skill.Range_)) {
 		b.Logger.Infow("Enemy out of skill range")
 		return nil

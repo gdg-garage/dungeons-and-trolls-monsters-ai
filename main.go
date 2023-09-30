@@ -88,8 +88,11 @@ func main() {
 			continue
 		}
 		backoff = 10 * time.Millisecond
-		logger.Info("================ Game state fetched for NEW TICK ================")
-		err = botDispatcher.HandleTick(&gameResp)
+		tickStartTime := time.Now()
+		logger.Info("======================= Game state fetched for NEW TICK =======================",
+			zap.Time("tickStartTime", tickStartTime),
+		)
+		err = botDispatcher.HandleTick(&gameResp, tickStartTime)
 		if err != nil {
 			logger.Error("Error when running monster AI",
 				zap.Error(err),

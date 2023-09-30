@@ -3,6 +3,7 @@ package bot
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/antihax/optional"
 	swagger "github.com/gdg-garage/dungeons-and-trolls-go-client"
@@ -21,12 +22,13 @@ type MonsterDetails struct {
 }
 
 type BotDispatcher struct {
-	Client      *swagger.APIClient
-	Ctx         context.Context
-	Bots        map[string]*Bot
-	BotsLock    sync.Mutex
-	Logger      *zap.SugaredLogger
-	LoggerWTick *zap.SugaredLogger
+	Client        *swagger.APIClient
+	Ctx           context.Context
+	Bots          map[string]*Bot
+	BotsLock      sync.Mutex
+	Logger        *zap.SugaredLogger
+	LoggerWTick   *zap.SugaredLogger
+	TickStartTime time.Time
 }
 
 func NewBotDispatcher(client *swagger.APIClient, ctx context.Context, logger *zap.SugaredLogger) *BotDispatcher {
@@ -39,8 +41,12 @@ func NewBotDispatcher(client *swagger.APIClient, ctx context.Context, logger *za
 	}
 }
 
-func (d *BotDispatcher) HandleTick(gameState *swagger.DungeonsandtrollsGameState) error {
-	d.LoggerWTick = d.Logger.With("tick", gameState.Tick)
+func (d *BotDispatcher) HandleTick(gameState *swagger.DungeonsandtrollsGameState, tickStartTime time.Time) error {
+	d.TickStartTime = tickStartTime
+	d.LoggerWTick = d.Logger.With(
+		"tick", gameState.Tick,
+		"tickStartTime", tickStartTime,
+	)
 
 	levels := d.getLevels(gameState)
 	for _, level := range levels {
@@ -104,6 +110,18 @@ func (d *BotDispatcher) HandleLevel(gameState *swagger.DungeonsandtrollsGameStat
 				}
 			}
 			commands.Commands[monster.Id] = *cmd
+			// XXX: send individually
+			sendIndividually := true
+			if sendIndividually {
+				commandsCopy := swagger.DungeonsandtrollsCommandsForMonsters{
+					Commands: make(map[string]swagger.DungeonsandtrollsCommandsBatch),
+				}
+				for k, v := range commands.Commands {
+					commandsCopy.Commands[k] = v
+				}
+				go d.sendMonsterCommands(commandsCopy)
+				commands.Commands = make(map[string]swagger.DungeonsandtrollsCommandsBatch)
+			}
 		}
 	}
 	if len(commands.Commands) > 0 {
@@ -153,6 +171,10 @@ func (d *BotDispatcher) sendMonsterCommands(cmds swagger.DungeonsandtrollsComman
 		Blocking: optional.NewBool(false),
 	}
 	_, httpResp, err := d.Client.DungeonsAndTrollsApi.DungeonsAndTrollsMonstersCommands(d.Ctx, cmds, &opts)
-	swaggerutil.LogResponse(d.LoggerWTick, err, httpResp, "MonsterCommands", cmds)
+	tickDuration := time.Since(d.TickStartTime)
+	logger := d.LoggerWTick.With(
+		"tickDurationSeconds", tickDuration,
+	)
+	swaggerutil.LogResponse(logger, err, httpResp, "MonsterCommands", cmds)
 	return nil
 }

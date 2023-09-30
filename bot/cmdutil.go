@@ -9,3 +9,18 @@ func (b *Bot) Yell(msg string) *swagger.DungeonsandtrollsCommandsBatch {
 		},
 	}
 }
+
+func (b *Bot) MoveXY(x, y int32) *swagger.DungeonsandtrollsCommandsBatch {
+	return &swagger.DungeonsandtrollsCommandsBatch{
+		Move: &swagger.DungeonsandtrollsPosition{
+			PositionX: x,
+			PositionY: y,
+		},
+	}
+}
+
+func (b *Bot) Move(position swagger.DungeonsandtrollsPosition) *swagger.DungeonsandtrollsCommandsBatch {
+	return &swagger.DungeonsandtrollsCommandsBatch{
+		Move: &position,
+	}
+}

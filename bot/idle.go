@@ -1,6 +1,7 @@
 package bot
 
 import (
+	"math"
 	"math/rand"
 
 	swagger "github.com/gdg-garage/dungeons-and-trolls-go-client"
@@ -69,35 +70,20 @@ func (b *Bot) randomWalkFromPosition(level int32, pos swagger.DungeonsandtrollsP
 }
 
 func (b *Bot) randomWalkFromPositionExt(level int32, pos swagger.DungeonsandtrollsPosition, mapExt map[swagger.DungeonsandtrollsPosition]MapCellExt) *swagger.DungeonsandtrollsCommandsBatch {
-
 	// get random direction
 	for i := 0; i < 20; i++ {
 		distanceX := rand.Intn(8) - 4
 		distanceY := rand.Intn(8) - 4
 		newX := int(pos.PositionX) + distanceX
 		newY := int(pos.PositionY) + distanceY
-		currentMap := b.GameState.Map_.Levels[level]
 
-		isFree := true
-		for _, objects := range currentMap.Objects {
-			if int(objects.Position.PositionX) == newX && int(objects.Position.PositionY) == newY && !objects.IsFree {
-				isFree = false
-			}
-			if !b.isInBounds(level, makePosition(int32(newX), int32(newY))) {
-				isFree = false
-			}
-			if len(objects.Monsters) > 0 && i < 10 {
-				// Don't stand on other monsters (at least for the first 10 iterations)
-				isFree = false
-			}
-		}
-		if !isFree {
+		tileInfo, found := b.BotState.MapExtended[makePosition(int32(newX), int32(newY))]
+		if !found || !tileInfo.mapObjects.IsFree || tileInfo.distance == math.MaxInt32 {
+			// unreachable or not free
 			continue
 		}
-		// exclude unreachable tiles
-		magicDistance := 42 // distance threshold
-		mapExtCell, found := mapExt[makePosition(int32(newX), int32(newY))]
-		if !found || mapExtCell.distance > magicDistance {
+		if len(tileInfo.mapObjects.Monsters) > 0 && i < 14 {
+			// Prefer not to walk into other monsters
 			continue
 		}
 		return &swagger.DungeonsandtrollsCommandsBatch{
