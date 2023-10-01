@@ -7,6 +7,39 @@ import (
 	swagger "github.com/gdg-garage/dungeons-and-trolls-go-client"
 )
 
+func (b *Bot) randomWalk() *swagger.DungeonsandtrollsCommandsBatch {
+	myPosition := *b.Details.Position
+	if b.PrevBotState.State == "move" && b.PrevBotState.TargetPosition != myPosition {
+		// Continue moving to target
+		b.Logger.Infow("Continue moving to target",
+			"targetPosition", b.PrevBotState.TargetPosition,
+		)
+		return b.Move(b.PrevBotState.TargetPosition)
+	}
+
+	for i := 0; i < 16; i++ {
+		// get random direction
+		distanceX := rand.Intn(7) - 3
+		distanceY := rand.Intn(7) - 3
+		newX := int(myPosition.PositionX) + distanceX
+		newY := int(myPosition.PositionY) + distanceY
+
+		position := makePosition(int32(newX), int32(newY))
+		tileInfo, found := b.BotState.MapExtended[position]
+		if !found || !tileInfo.mapObjects.IsFree || tileInfo.distance == math.MaxInt32 {
+			// unreachable or not free
+			continue
+		}
+		if len(tileInfo.mapObjects.Monsters) > 0 && i < 5 {
+			// Prefer not to walk into other monsters
+			continue
+		}
+		return b.Move(position)
+	}
+	b.Logger.Warnw("randomWalkFromPosition: No free position found")
+	return b.Yell("I'm stuck ...")
+}
+
 func (b *Bot) jumpAway() *swagger.DungeonsandtrollsCommandsBatch {
 	allSkills := getAllSkills(b.Details.Monster.EquippedItems)
 	skills := b.filterMovementSkills(allSkills)
@@ -36,12 +69,13 @@ func (b *Bot) jumpAway() *swagger.DungeonsandtrollsCommandsBatch {
 	pos := b.Details.Position
 
 	for i := 0; i < 20; i++ {
-		distanceX := rand.Intn(8) - 4
-		distanceY := rand.Intn(8) - 4
+		distanceX := rand.Intn(7) - 3
+		distanceY := rand.Intn(7) - 3
 		newX := pos.PositionX + int32(distanceX)
 		newY := pos.PositionY + int32(distanceY)
 
-		tileInfo, found := b.BotState.MapExtended[makePosition(newX, newY)]
+		position := makePosition(newX, newY)
+		tileInfo, found := b.BotState.MapExtended[position]
 		if !found || !tileInfo.mapObjects.IsFree || tileInfo.distance == math.MaxInt32 {
 			// unreachable or not free
 			continue
@@ -51,12 +85,17 @@ func (b *Bot) jumpAway() *swagger.DungeonsandtrollsCommandsBatch {
 			continue
 		}
 		b.Logger.Infow("Testing position for jump",
-			"position", makePosition(newX, newY),
+			"position", position,
 			"distance", tileInfo.distance,
+			"try", i,
 		)
 		skillsWithRange, found := skillsByRange[tileInfo.distance]
 		if found && len(skillsWithRange) > 0 {
 			random := rand.Intn(len(skillsWithRange))
+			if skillsWithRange[random].Flags.RequiresLineOfSight && !tileInfo.lineOfSight {
+				b.Logger.Infow("No line of sight for jump")
+				continue
+			}
 			b.MoveSkillXY(&skillsWithRange[random], newX, newY)
 		}
 		if i < 10 {
@@ -66,10 +105,16 @@ func (b *Bot) jumpAway() *swagger.DungeonsandtrollsCommandsBatch {
 		skillsWithRange, found = skillsByRange[tileInfo.distance-1]
 		if found && len(skillsWithRange) > 0 {
 			random := rand.Intn(len(skillsWithRange))
+			if skillsWithRange[random].Flags.RequiresLineOfSight && !tileInfo.lineOfSight {
+				b.Logger.Infow("No line of sight for jump")
+				continue
+			}
 			b.MoveSkillXY(&skillsWithRange[random], newX, newY)
 		}
 	}
-	return nil
+	b.Logger.Errorw("No positions found for jump -> fallback to random walk")
+	b.addYell("Can't jump anywhere ...")
+	return b.randomWalk()
 }
 
 func (b *Bot) MoveSkillXY(skill *swagger.DungeonsandtrollsSkill, x, y int32) *swagger.DungeonsandtrollsCommandsBatch {

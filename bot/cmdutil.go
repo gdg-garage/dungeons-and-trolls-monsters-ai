@@ -11,15 +11,13 @@ func (b *Bot) Yell(msg string) *swagger.DungeonsandtrollsCommandsBatch {
 }
 
 func (b *Bot) MoveXY(x, y int32) *swagger.DungeonsandtrollsCommandsBatch {
-	return &swagger.DungeonsandtrollsCommandsBatch{
-		Move: &swagger.DungeonsandtrollsPosition{
-			PositionX: x,
-			PositionY: y,
-		},
-	}
+	pos := makePosition(x, y)
+	return b.Move(pos)
 }
 
 func (b *Bot) Move(position swagger.DungeonsandtrollsPosition) *swagger.DungeonsandtrollsCommandsBatch {
+	b.BotState.State = "move"
+	b.BotState.TargetPosition = position
 	return &swagger.DungeonsandtrollsCommandsBatch{
 		Move: &position,
 	}

@@ -9,16 +9,16 @@ type Mood struct {
 	// Laziness    float32
 }
 
-func (b *Bot) updateMood() {
-	b.BotState.Mood.Aggression /= 2
-	b.BotState.Mood.Aggression += b.determineAggression()
-
-	b.BotState.Mood.Support /= 2
-	b.BotState.Mood.Support += b.determineSupport()
-
-	b.BotState.Mood.Fear /= 0
-	b.BotState.Mood.Fear += b.determineFear()
-}
+// func (b *Bot) updateMood() {
+// 	b.BotState.Mood.Aggression /= 2
+// 	b.BotState.Mood.Aggression += b.determineAggression()
+//
+// 	b.BotState.Mood.Support /= 2
+// 	b.BotState.Mood.Support += b.determineSupport()
+//
+// 	b.BotState.Mood.Fear /= 0
+// 	b.BotState.Mood.Fear += b.determineFear()
+// }
 
 // TODO: V1 determine aggression based on enemy number, proximity, and life
 // - number increases aggression
