@@ -6,32 +6,50 @@ import (
 	swagger "github.com/gdg-garage/dungeons-and-trolls-go-client"
 )
 
+func (b *Bot) evaluateHealSkill(skill *swagger.DungeonsandtrollsSkill, target *MapObject) float32 {
+	if *skill.Target == swagger.NONE_SkillTarget {
+		return 0
+	}
+	range_ := b.calculateAttributesValue(*skill.Range_)
+	if b.BotState.MapExtended[*target.MapObjects.Position].distance > range_ {
+		return 0
+	}
+	return b.scoreVitalsFor(target, skill.TargetEffects.Attributes, skill)
+}
+
+func (b *Bot) scoreVitals(skillAttributes *swagger.DungeonsandtrollsSkillAttributes, skill *swagger.DungeonsandtrollsSkill) float32 {
+	return b.scoreVitalsFor(&b.BotState.Self, skillAttributes, skill)
+}
+
 // Get vitals score for skill
 // Tells you how much the skill will improve your resources (life, stamina, mana)
 // Can be used for both casterEffect and targetEffect skills
-func (b *Bot) scoreVitals(skillAttributes *swagger.DungeonsandtrollsSkillAttributes, skill *swagger.DungeonsandtrollsSkill) float32 {
-	skillAttributes = fillSkillAttributes(*skillAttributes)
-	skillLifeGain := float32(b.calculateAttributesValue(*skillAttributes.Life)) - skill.Cost.Life
-	skillStaminaGain := float32(b.calculateAttributesValue(*skillAttributes.Stamina)) - skill.Cost.Stamina
-	skillManaGain := float32(b.calculateAttributesValue(*skillAttributes.Mana)) - skill.Cost.Mana
+func (b *Bot) scoreVitalsFor(target *MapObject, skillAttributes *swagger.DungeonsandtrollsSkillAttributes, skill *swagger.DungeonsandtrollsSkill) float32 {
+	targetAttrs := target.GetAttributes()
+	targetMaxAttrs := target.GetMaxAttributes()
 
-	lifePercentage := b.Details.Monster.Attributes.Life / b.Details.Monster.MaxAttributes.Life
-	staminaPercentage := b.Details.Monster.Attributes.Stamina / b.Details.Monster.MaxAttributes.Stamina
+	skillAttributes = fillSkillAttributes(*skillAttributes)
+	skillLifeGain := float32(calculateAttributesValue(*targetAttrs, *skillAttributes.Life)) - skill.Cost.Life
+	skillStaminaGain := float32(calculateAttributesValue(*targetAttrs, *skillAttributes.Stamina)) - skill.Cost.Stamina
+	skillManaGain := float32(calculateAttributesValue(*targetAttrs, *skillAttributes.Mana)) - skill.Cost.Mana
+
+	lifePercentage := targetAttrs.Life / targetMaxAttrs.Life
+	staminaPercentage := targetAttrs.Stamina / targetMaxAttrs.Stamina
 	if math.IsNaN(float64(staminaPercentage)) {
 		staminaPercentage = 0
 	}
-	manaPercentage := b.Details.Monster.Attributes.Mana / b.Details.Monster.MaxAttributes.Mana
+	manaPercentage := targetAttrs.Mana / targetMaxAttrs.Mana
 	if math.IsNaN(float64(manaPercentage)) {
 		manaPercentage = 0
 	}
 	score := b.scoreVitalsFunc(lifePercentage, staminaPercentage, manaPercentage)
 
-	lifePercentageAfter := (b.Details.Monster.Attributes.Life + skillLifeGain) / b.Details.Monster.MaxAttributes.Life
-	staminaPercentageAfter := (b.Details.Monster.Attributes.Stamina + skillStaminaGain) / b.Details.Monster.MaxAttributes.Stamina
+	lifePercentageAfter := (targetAttrs.Life + skillLifeGain) / targetMaxAttrs.Life
+	staminaPercentageAfter := (targetAttrs.Stamina + skillStaminaGain) / targetMaxAttrs.Stamina
 	if math.IsNaN(float64(staminaPercentageAfter)) {
 		staminaPercentageAfter = 0
 	}
-	manaPercentageAfter := (b.Details.Monster.Attributes.Mana + skillManaGain) / b.Details.Monster.MaxAttributes.Mana
+	manaPercentageAfter := (targetAttrs.Mana + skillManaGain) / targetMaxAttrs.Mana
 	if math.IsNaN(float64(manaPercentageAfter)) {
 		manaPercentageAfter = 0
 	}
@@ -47,14 +65,14 @@ func (b *Bot) scoreVitals(skillAttributes *swagger.DungeonsandtrollsSkillAttribu
 		"staminaGain", skillStaminaGain,
 		"manaGain", skillManaGain,
 		"lifePercentage", lifePercentage,
-		"life", b.Details.Monster.Attributes.Life,
-		"lifeMax", b.Details.Monster.MaxAttributes.Life,
+		"life", targetAttrs.Life,
+		"lifeMax", targetMaxAttrs.Life,
 		"staminaPercentage", staminaPercentage,
-		"stamina", b.Details.Monster.Attributes.Stamina,
-		"staminaMax", b.Details.Monster.MaxAttributes.Stamina,
+		"stamina", targetAttrs.Stamina,
+		"staminaMax", targetMaxAttrs.Stamina,
 		"manaPercentage", manaPercentage,
-		"mana", b.Details.Monster.Attributes.Mana,
-		"manaMax", b.Details.Monster.MaxAttributes.Mana,
+		"mana", targetAttrs.Mana,
+		"manaMax", targetMaxAttrs.Mana,
 		"lifePercentageAfter", lifePercentageAfter,
 		"staminaPercentageAfter", staminaPercentageAfter,
 		"manaPercentageAfter", manaPercentageAfter,

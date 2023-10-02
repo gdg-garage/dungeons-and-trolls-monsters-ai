@@ -66,24 +66,44 @@ func (b *Bot) Run() *swagger.DungeonsandtrollsCommandsBatch {
 		return combatCmd
 	}
 
-	random := rand.Intn(5)
+	random := rand.Intn(7)
 	switch random {
 	case 0:
-		return b.rest()
+		heal := b.heal()
+		if heal != nil {
+			return heal
+		}
+		fallthrough
 	case 1:
-		fallthrough
+		return b.rest()
 	case 2:
-		return b.randomWalk()
-	case 3:
 		fallthrough
+	case 3:
+		jump := b.jumpAway()
+		if jump != nil {
+			return jump
+		}
 	case 4:
-		return b.jumpAway()
+		fallthrough
+	case 5:
+		fallthrough
+	case 6:
+		return b.randomWalk()
 	default:
 		return b.Yell("Nothing to do ...")
 	}
+	return b.Yell("Nothing to do ...")
 }
 
 func (b *Bot) combat() *swagger.DungeonsandtrollsCommandsBatch {
+	random := rand.Intn(5)
+	if random == 0 {
+		heal := b.heal()
+		if heal != nil {
+			b.addFirstYell("HEAL!")
+			return heal
+		}
+	}
 	if len(b.BotState.Objects.Hostile) <= 0 {
 		return nil
 	}
@@ -103,12 +123,12 @@ func (b *Bot) combat() *swagger.DungeonsandtrollsCommandsBatch {
 	}
 	skills2 := b.filterRequirementsMetSkills(dmgSkills)
 	if len(skills2) == 0 {
+		b.addYell("No skills available")
 		b.Logger.Errorw("No skills available")
-		return nil
 	}
 	if len(dmgSkills)-len(skills2) >= 2 {
 		b.addYell("Combat rest")
-		random := rand.Intn(2)
+		random := rand.Intn(3)
 		if random == 0 {
 			return b.rest()
 		} else {
@@ -178,10 +198,12 @@ func (b *Bot) combat() *swagger.DungeonsandtrollsCommandsBatch {
 	}
 	b.Logger.Warnw("No skill chosen")
 
-	random := rand.Intn(3)
+	random = rand.Intn(3)
 	switch random {
 	case 0:
 		return b.rest()
+	case 1:
+		return b.heal()
 	default:
 		return b.moveTowardsEnemy(enemies)
 	}
@@ -189,7 +211,7 @@ func (b *Bot) combat() *swagger.DungeonsandtrollsCommandsBatch {
 
 func (b *Bot) moveTowardsEnemy(enemies []MapObject) *swagger.DungeonsandtrollsCommandsBatch {
 	// Go to player
-	magicDistance := 13 // distance threshold
+	magicDistance := 17 // distance threshold
 	closeEnemies := []MapObject{}
 	for _, enemy := range enemies {
 		if b.BotState.MapExtended[*enemy.MapObjects.Position].distance < magicDistance {
@@ -209,8 +231,76 @@ func (b *Bot) moveTowardsEnemy(enemies []MapObject) *swagger.DungeonsandtrollsCo
 	}
 }
 
+func (b *Bot) heal() *swagger.DungeonsandtrollsCommandsBatch {
+	b.Logger.Debugw("Picking a friend-support skill ...")
+	// Rest & Heal, etc.
+	allSkills := getAllSkills(b.Details.Monster.EquippedItems)
+	skills := b.filterRequirementsMetSkills(allSkills)
+	if len(skills) <= 0 {
+		return nil
+	}
+	targets := b.BotState.Objects.Friendly
+	if len(targets) <= 0 {
+		b.Logger.Warnw("No friends found :cry: (to heal)")
+		return nil
+	}
+	b.Logger.Infow("Choosing healing skills & friends",
+		"skills", skills,
+		"numSkills", len(skills),
+	)
+	var bestSkill *swagger.DungeonsandtrollsSkill
+	bestScore := float32(0)
+	bestTarget := MapObject{}
+	for j := range targets {
+		target := targets[j]
+		for i := range skills {
+			skill := skills[i]
+			skillVitalsScore := b.evaluateHealSkill(&skill, &target)
+			b.Logger.Infow("Skill + target evaluated",
+				"skillName", skill.Name,
+				"skill", skill,
+				"vitalsScore", skillVitalsScore,
+				"position", target.MapObjects.Position,
+				"myPosition", b.Details.Position,
+				"targetName", target.GetName(),
+				"targetFaction", target.GetFaction(),
+			)
+			if skillVitalsScore > bestScore {
+				b.Logger.Infow("Found better skill + target",
+					"skillName", skill.Name,
+					"skill", skill,
+					"vitalsScore", skillVitalsScore,
+					"position", target.MapObjects.Position,
+					"myPosition", b.Details.Position,
+					"targetName", target.GetName(),
+					"targetFaction", target.GetFaction(),
+				)
+				bestSkill = &skill
+				bestScore = skillVitalsScore
+				bestTarget = target
+			}
+		}
+	}
+	if bestSkill == nil {
+		b.Logger.Warnw("No heal/support skill chosen")
+		return nil
+	}
+	b.Logger.Infow("Using best heal skill available",
+		"skillName", bestSkill.Name,
+		"skill", bestSkill,
+		"vitalsScore", bestScore,
+		"targetId", bestTarget.GetId(),
+		"targetName", bestTarget.GetName(),
+		"targetFaction", bestTarget.GetFaction(),
+		"position", bestTarget.MapObjects.Position,
+		"myPosition", b.Details.Position,
+		"myFaction", b.Details.Monster.Faction,
+	)
+	return b.useSkill(*bestSkill, bestTarget)
+}
+
 func (b *Bot) rest() *swagger.DungeonsandtrollsCommandsBatch {
-	b.Logger.Debugw("Picking a support skill ...")
+	b.Logger.Debugw("Picking a self-support skill ...")
 	// Rest & Heal, etc.
 	allSkills := getAllSkills(b.Details.Monster.EquippedItems)
 	skills := b.filterRequirementsMetSkills(allSkills)
@@ -251,24 +341,4 @@ func (b *Bot) rest() *swagger.DungeonsandtrollsCommandsBatch {
 		b.Logger.Warnw("Picking self as target for support skill - might not be a good idea")
 	}
 	return b.useSkill(*bestSkill, b.BotState.Self)
-}
-
-func (b *Bot) shop() *swagger.DungeonsandtrollsItem {
-	shop := b.GameState.ShopItems
-	money := b.GameState.Character.Money
-	for _, item := range shop {
-		if item.Price <= money {
-			if *item.Slot == swagger.MAIN_HAND_DungeonsandtrollsItemType {
-				if len(item.Skills) > 0 {
-					if item.Skills[0].DamageAmount.Constant > 0 {
-						b.Logger.Infow("Found item to buy ...",
-							"itemName", item.Name,
-						)
-						return &item
-					}
-				}
-			}
-		}
-	}
-	return nil
 }

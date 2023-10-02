@@ -75,6 +75,40 @@ func (mo MapObject) GetName() string {
 	}
 }
 
+func (mo MapObject) GetAttributes() *swagger.DungeonsandtrollsAttributes {
+	switch mo.Type {
+	case MapObjectTypePlayer:
+		return mo.MapObjects.Players[mo.Index].Attributes
+	case MapObjectTypeMonster:
+		return mo.MapObjects.Monsters[mo.Index].Attributes
+	case MapObjectTypeEffect:
+		log.Println("ERROR: MapObject.GetAttributes(): Can't get attributes for Effect")
+		return nil
+	default:
+		log.Println("ERROR: MapObject.GetAttributes(): Unknown type")
+		return nil
+	}
+}
+
+func (mo MapObject) GetMaxAttributes() *swagger.DungeonsandtrollsAttributes {
+	switch mo.Type {
+	case MapObjectTypePlayer:
+		return mo.MapObjects.Players[mo.Index].MaxAttributes
+	case MapObjectTypeMonster:
+		return mo.MapObjects.Monsters[mo.Index].MaxAttributes
+	case MapObjectTypeEffect:
+		log.Println("ERROR: MapObject.GetAttributes(): Can't get attributes for Effect")
+		return nil
+	default:
+		log.Println("ERROR: MapObject.GetAttributes(): Unknown type")
+		return nil
+	}
+}
+
+func (mo MapObject) GetPosition() *swagger.DungeonsandtrollsPosition {
+	return mo.MapObjects.Position
+}
+
 func (mo MapObject) GetFaction() string {
 	if mo.Type == MapObjectTypePlayer {
 		return "player"

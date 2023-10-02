@@ -63,6 +63,11 @@ func (b *Bot) jumpAway() *swagger.DungeonsandtrollsCommandsBatch {
 	skillsByRange := map[int][]swagger.DungeonsandtrollsSkill{}
 	for _, skill := range reqSkills {
 		range_ := b.calculateAttributesValue(*skill.Range_)
+		b.Logger.Debugw("Adding skill to range map",
+			"skillName", skill.Name,
+			"rangeAttrs", skill.Range_,
+			"range", range_,
+		)
 		skillsByRange[range_] = append(skillsByRange[range_], skill)
 	}
 
@@ -84,8 +89,9 @@ func (b *Bot) jumpAway() *swagger.DungeonsandtrollsCommandsBatch {
 			// Prefer not to walk into other monsters
 			continue
 		}
-		b.Logger.Infow("Testing position for jump",
+		b.Logger.Debugw("Testing position for jump",
 			"position", position,
+			"myPosition", pos,
 			"distance", tileInfo.distance,
 			"try", i,
 		)
@@ -96,20 +102,20 @@ func (b *Bot) jumpAway() *swagger.DungeonsandtrollsCommandsBatch {
 				b.Logger.Infow("No line of sight for jump")
 				continue
 			}
-			b.MoveSkillXY(&skillsWithRange[random], newX, newY)
+			return b.MoveSkill(&skillsWithRange[random], &position)
 		}
 		if i < 10 {
 			// Prefer full range jumps
 			continue
 		}
-		skillsWithRange, found = skillsByRange[tileInfo.distance-1]
+		skillsWithRange, found = skillsByRange[tileInfo.distance+1]
 		if found && len(skillsWithRange) > 0 {
 			random := rand.Intn(len(skillsWithRange))
 			if skillsWithRange[random].Flags.RequiresLineOfSight && !tileInfo.lineOfSight {
 				b.Logger.Infow("No line of sight for jump")
 				continue
 			}
-			b.MoveSkillXY(&skillsWithRange[random], newX, newY)
+			return b.MoveSkill(&skillsWithRange[random], &position)
 		}
 	}
 	b.Logger.Errorw("No positions found for jump -> fallback to random walk")
@@ -129,13 +135,25 @@ func (b *Bot) MoveSkill(skill *swagger.DungeonsandtrollsSkill, position *swagger
 		"myPosition", b.Details.Position,
 		"range", b.calculateAttributesValue(*skill.Range_),
 	)
-	return &swagger.DungeonsandtrollsCommandsBatch{
-		Skill: &swagger.DungeonsandtrollsSkillUse{
-			SkillId:  skill.Id,
-			Position: position,
-		},
-		Yell: &swagger.DungeonsandtrollsMessage{
-			Text: "HOP :)",
-		},
+	// XXX: This is super dumb
+	mapObjects := b.BotState.MapExtended[*position].mapObjects
+	if len(mapObjects.Players) > 0 {
+		b.addFirstYell("HOP :)")
+		return b.useSkill(*skill, NewPlayerMapObject(mapObjects, 0))
+	} else if len(mapObjects.Monsters) > 0 {
+		b.addFirstYell("HOP :)")
+		return b.useSkill(*skill, NewMonsterMapObject(mapObjects, 0))
+	} else {
+		if *skill.Target != swagger.POSITION_SkillTarget {
+			b.Logger.Errorw("Aborting jump :(")
+			return nil
+		}
+		b.addFirstYell("HOP :)")
+		return &swagger.DungeonsandtrollsCommandsBatch{
+			Skill: &swagger.DungeonsandtrollsSkillUse{
+				SkillId:  skill.Id,
+				Position: position,
+			},
+		}
 	}
 }

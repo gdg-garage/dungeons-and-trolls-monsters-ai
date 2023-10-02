@@ -107,16 +107,19 @@ func (d *BotDispatcher) HandleLevel(gameState *swagger.DungeonsandtrollsGameStat
 					commandsCopy.Commands[k] = v
 				}
 				if sendAsynchronously {
-					go d.sendMonsterCommands(commandsCopy)
+					go d.sendMonsterCommands(commandsCopy, botLogger)
 				} else {
-					d.sendMonsterCommands(commandsCopy)
+					d.sendMonsterCommands(commandsCopy, botLogger)
 				}
 				commands.Commands = make(map[string]swagger.DungeonsandtrollsCommandsBatch)
 			}
 		}
 	}
 	if len(commands.Commands) > 0 {
-		go d.sendMonsterCommands(commands)
+		loggerWLevel := d.LoggerWTick.With(
+			"mapLevel", level,
+		)
+		go d.sendMonsterCommands(commands, loggerWLevel)
 	}
 	return nil
 }
@@ -160,15 +163,15 @@ func getMonstersDetailsForLevel(state *swagger.DungeonsandtrollsGameState, level
 	return monsters
 }
 
-func (d *BotDispatcher) sendMonsterCommands(cmds swagger.DungeonsandtrollsCommandsForMonsters) error {
+func (d *BotDispatcher) sendMonsterCommands(cmds swagger.DungeonsandtrollsCommandsForMonsters, logger *zap.SugaredLogger) error {
 	opts := swagger.DungeonsAndTrollsApiDungeonsAndTrollsMonstersCommandsOpts{
 		Blocking: optional.NewBool(false),
 	}
 	_, httpResp, err := d.Client.DungeonsAndTrollsApi.DungeonsAndTrollsMonstersCommands(d.Ctx, cmds, &opts)
 	tickDuration := time.Since(d.TickStartTime)
-	logger := d.LoggerWTick.With(
+	logger2 := logger.With(
 		"tickDurationSeconds", tickDuration,
 	)
-	swaggerutil.LogResponse(logger, err, httpResp, "MonsterCommands", cmds)
+	swaggerutil.LogResponse(logger2, err, httpResp, "MonsterCommands", cmds)
 	return nil
 }
