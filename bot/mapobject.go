@@ -212,8 +212,7 @@ func (b *Bot) getMapObjectsByCategory() MapObjectsByCategory {
 }
 
 func (b *Bot) getMapObjectsByCategoryForLevel(level int32) MapObjectsByCategory {
-	state := *b.GameState
-	currentMap := state.Map_.Levels[level]
+	currentMap := b.Details.CurrentMap
 	objects := MapObjectsByCategory{}
 	for i := range currentMap.Objects {
 		// get references to objects

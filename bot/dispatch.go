@@ -19,6 +19,7 @@ type MonsterDetails struct {
 	Position   *swagger.DungeonsandtrollsPosition
 	Monster    *swagger.DungeonsandtrollsMonster
 	MapObjects *swagger.DungeonsandtrollsMapObjects
+	CurrentMap *swagger.DungeonsandtrollsLevel
 }
 
 type BotDispatcher struct {
@@ -48,22 +49,25 @@ func (d *BotDispatcher) HandleTick(gameState *swagger.DungeonsandtrollsGameState
 		"tickStartTime", tickStartTime,
 	)
 
-	levels := d.getLevels(gameState)
-	for _, level := range levels {
+	for _, level := range gameState.Map_.Levels {
 		// go d.HandleLevel(gameState, level)
 		err := d.HandleLevel(gameState, level)
 		if err != nil {
 			d.LoggerWTick.Error("Error when running monster AI for level",
 				zap.Error(err),
-				zap.Int32("mapLevel", level),
+				zap.Int32("mapLevel", level.Level),
 			)
 		}
 	}
 	return nil
 }
 
-func (d *BotDispatcher) HandleLevel(gameState *swagger.DungeonsandtrollsGameState, level int32) error {
-	monsters := getMonstersDetailsForLevel(gameState, level)
+func (d *BotDispatcher) HandleLevel(gameState *swagger.DungeonsandtrollsGameState, level swagger.DungeonsandtrollsLevel) error {
+	monsters := getMonstersDetailsForLevel(gameState, &level)
+	d.LoggerWTick.Infow("Handling level",
+		"mapLevel", level.Level,
+		"monstersCount", len(monsters),
+	)
 	commands := swagger.DungeonsandtrollsCommandsForMonsters{}
 	commands.Commands = make(map[string]swagger.DungeonsandtrollsCommandsBatch)
 	for i := range monsters {
@@ -124,26 +128,8 @@ func (d *BotDispatcher) HandleLevel(gameState *swagger.DungeonsandtrollsGameStat
 	return nil
 }
 
-func (d *BotDispatcher) getLevels(gameState *swagger.DungeonsandtrollsGameState) []int32 {
-	var levels []int32
-	if gameState == nil || gameState.Map_ == nil {
-		return levels
-	}
-	for _, level := range gameState.Map_.Levels {
-		levels = append(levels, level.Level)
-	}
-	return reverseListInt32(levels)
-}
-
-func reverseListInt32(a []int32) []int32 {
-	for i, j := 0, len(a)-1; i < j; i, j = i+1, j-1 {
-		a[i], a[j] = a[j], a[i]
-	}
-	return a
-}
-
-func getMonstersDetailsForLevel(state *swagger.DungeonsandtrollsGameState, level int32) []MonsterDetails {
-	currentMap := state.Map_.Levels[level]
+func getMonstersDetailsForLevel(state *swagger.DungeonsandtrollsGameState, level *swagger.DungeonsandtrollsLevel) []MonsterDetails {
+	currentMap := level
 	monsters := []MonsterDetails{}
 	for i := range currentMap.Objects {
 		object := currentMap.Objects[i]
@@ -151,7 +137,8 @@ func getMonstersDetailsForLevel(state *swagger.DungeonsandtrollsGameState, level
 			details := MonsterDetails{
 				Id:         object.Monsters[j].Id,
 				Name:       object.Monsters[j].Name,
-				Level:      level,
+				Level:      level.Level,
+				CurrentMap: currentMap,
 				Index:      j,
 				Position:   object.Position,
 				Monster:    &object.Monsters[j],

@@ -14,7 +14,7 @@ type MapCellExt struct {
 }
 
 func (b *Bot) calculateDistanceAndLineOfSight(level int32, currentPosition swagger.DungeonsandtrollsPosition) map[swagger.DungeonsandtrollsPosition]MapCellExt {
-	currentMap := b.GameState.Map_.Levels[level]
+	currentMap := b.Details.CurrentMap
 
 	// distance to obstacles used for line of sight
 	distanceToFirstObstacle := make(map[float32]float32)
@@ -165,7 +165,7 @@ func getNeighbors(pos swagger.DungeonsandtrollsPosition) []swagger.Dungeonsandtr
 }
 
 func (b *Bot) isInBounds(level int32, pos swagger.DungeonsandtrollsPosition) bool {
-	currentMap := b.GameState.Map_.Levels[level]
+	currentMap := b.Details.CurrentMap
 	return pos.PositionX >= 0 && pos.PositionX < currentMap.Width && pos.PositionY >= 0 && pos.PositionY < currentMap.Height
 }
 

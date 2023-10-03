@@ -57,6 +57,10 @@ func (b *Bot) Run() *swagger.DungeonsandtrollsCommandsBatch {
 		b.Logger.Warnw("Skipping DEAD monster")
 		return nil
 	}
+	// if monster.IsStunned > 0 {
+	// 	b.Logger.Warnw("Skipping stunned monster")
+	// 	return b.Yell("STUNNED!")
+	// }
 	// calculate distance and line of sight
 	b.BotState.MapExtended = b.calculateDistanceAndLineOfSight(level, *position)
 	b.BotState.Objects = b.getMapObjectsByCategoryForLevel(level)
@@ -121,7 +125,7 @@ func (b *Bot) combat() *swagger.DungeonsandtrollsCommandsBatch {
 			"monster", b.Details.Monster,
 		)
 	}
-	skills2 := b.filterRequirementsMetSkills(dmgSkills)
+	skills2 := b.filterCastableWithOOCSkills(b.filterRequirementsMetSkills(dmgSkills))
 	if len(skills2) == 0 {
 		b.addYell("No skills available")
 		b.Logger.Errorw("No skills available")
@@ -235,7 +239,7 @@ func (b *Bot) heal() *swagger.DungeonsandtrollsCommandsBatch {
 	b.Logger.Debugw("Picking a friend-support skill ...")
 	// Rest & Heal, etc.
 	allSkills := getAllSkills(b.Details.Monster.EquippedItems)
-	skills := b.filterRequirementsMetSkills(allSkills)
+	skills := b.filterCastableWithOOCSkills(b.filterRequirementsMetSkills(allSkills))
 	if len(skills) <= 0 {
 		return nil
 	}
@@ -303,9 +307,13 @@ func (b *Bot) rest() *swagger.DungeonsandtrollsCommandsBatch {
 	b.Logger.Debugw("Picking a self-support skill ...")
 	// Rest & Heal, etc.
 	allSkills := getAllSkills(b.Details.Monster.EquippedItems)
-	skills := b.filterRequirementsMetSkills(allSkills)
-	if len(skills) <= 0 {
+	reqSkills := b.filterRequirementsMetSkills(allSkills)
+	if len(reqSkills) <= 0 {
 		return nil
+	}
+	skills := b.filterCastableWithOOCSkills(reqSkills)
+	if len(skills) <= 0 {
+		return b.jumpAway()
 	}
 	var bestSkill *swagger.DungeonsandtrollsSkill
 	bestSkill = nil
