@@ -45,10 +45,6 @@ func (b *Bot) Run() *swagger.DungeonsandtrollsCommandsBatch {
 	level := b.Details.Level
 	position := b.Details.Position
 
-	b.Logger.Infow("Handling monster",
-		"monster", monster,
-		"position", position,
-	)
 	if monster.Algorithm == "none" {
 		b.Logger.Warnw("Skipping monster with algorithm 'none'")
 		return b.Yell("I'm a chest ... I think")
@@ -57,13 +53,20 @@ func (b *Bot) Run() *swagger.DungeonsandtrollsCommandsBatch {
 		b.Logger.Warnw("Skipping DEAD monster")
 		return nil
 	}
-	// if monster.IsStunned > 0 {
-	// 	b.Logger.Warnw("Skipping stunned monster")
-	// 	return b.Yell("STUNNED!")
-	// }
+	if monster.Stun.IsStunned {
+		b.Logger.Warnw("Skipping stunned monster")
+		return b.Yell("STUNNED!")
+	}
+	b.Logger.Infow("Handling monster",
+		"monster", monster,
+		"position", position,
+	)
 	// calculate distance and line of sight
 	b.BotState.MapExtended = b.calculateDistanceAndLineOfSight(level, *position)
 	b.BotState.Objects = b.getMapObjectsByCategoryForLevel(level)
+
+	// One shot skill eval
+	return b.bestSkill()
 
 	combatCmd := b.combat()
 	if combatCmd != nil {
@@ -131,11 +134,12 @@ func (b *Bot) combat() *swagger.DungeonsandtrollsCommandsBatch {
 		b.Logger.Errorw("No skills available")
 	}
 	if len(dmgSkills)-len(skills2) >= 2 {
-		b.addYell("Combat rest")
 		random := rand.Intn(3)
 		if random == 0 {
+			b.addYell("Combat rest")
 			return b.rest()
 		} else {
+			b.addYell("Combat jump")
 			return b.jumpAway()
 		}
 	}
@@ -165,23 +169,25 @@ func (b *Bot) combat() *swagger.DungeonsandtrollsCommandsBatch {
 		for i := range skills2 {
 			skill := skills2[i]
 			skillResult := b.evaluateSkill(skill, enemy)
+			damage := -int32(skillResult.VitalsHostile)
 			b.Logger.Infow("Skill evaluated",
 				"skillName", skill.Name,
 				"skill", skill,
-				zap.Any("skillResult", skillResult),
+				"skillResult", skillResult,
 				"position", enemy.MapObjects.Position,
 				"myPosition", b.Details.Position,
 			)
-			if skillResult != nil && -int32(skillResult.VitalsHostile) > bestDmg {
+			if damage > bestDmg {
 				b.Logger.Infow("Found better skill",
 					"skillName", skill.Name,
 					"skill", skill,
-					"damage", -skillResult.VitalsHostile,
+					"skillResult", skillResult,
+					"damage", damage,
 					"position", enemy.MapObjects.Position,
 					"myPosition", b.Details.Position,
 				)
 				bestSkill = &skill
-				bestDmg = -int32(skillResult.VitalsHostile)
+				bestDmg = damage
 				bestEnemy = enemy
 			}
 		}
@@ -215,7 +221,7 @@ func (b *Bot) combat() *swagger.DungeonsandtrollsCommandsBatch {
 
 func (b *Bot) moveTowardsEnemy(enemies []MapObject) *swagger.DungeonsandtrollsCommandsBatch {
 	// Go to player
-	magicDistance := 17 // distance threshold
+	magicDistance := 15 // distance threshold
 	closeEnemies := []MapObject{}
 	for _, enemy := range enemies {
 		if b.BotState.MapExtended[*enemy.MapObjects.Position].distance < magicDistance {
@@ -259,7 +265,8 @@ func (b *Bot) heal() *swagger.DungeonsandtrollsCommandsBatch {
 		target := targets[j]
 		for i := range skills {
 			skill := skills[i]
-			skillVitalsScore := b.evaluateHealSkill(&skill, &target)
+			skillResult := b.evaluateSkill(skill, target)
+			skillVitalsScore := skillResult.VitalsFriendly
 			b.Logger.Infow("Skill + target evaluated",
 				"skillName", skill.Name,
 				"skill", skill,
@@ -304,15 +311,17 @@ func (b *Bot) heal() *swagger.DungeonsandtrollsCommandsBatch {
 }
 
 func (b *Bot) rest() *swagger.DungeonsandtrollsCommandsBatch {
-	b.Logger.Debugw("Picking a self-support skill ...")
+	b.Logger.Infow("Picking a self-support skill ...")
 	// Rest & Heal, etc.
 	allSkills := getAllSkills(b.Details.Monster.EquippedItems)
 	reqSkills := b.filterRequirementsMetSkills(allSkills)
 	if len(reqSkills) <= 0 {
-		return nil
+		b.Logger.Warnw("Can't cast because requirements not met")
+		return b.jumpAway()
 	}
 	skills := b.filterCastableWithOOCSkills(reqSkills)
 	if len(skills) <= 0 {
+		b.Logger.Warnw("Can't cast because of out of combat")
 		return b.jumpAway()
 	}
 	var bestSkill *swagger.DungeonsandtrollsSkill
@@ -337,7 +346,7 @@ func (b *Bot) rest() *swagger.DungeonsandtrollsCommandsBatch {
 	}
 	if bestSkill == nil {
 		b.Logger.Warnw("No support skill chosen")
-		return nil
+		return b.randomWalk()
 	}
 	b.Logger.Infow("Best support skill",
 		"skillName", bestSkill.Name,

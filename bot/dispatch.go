@@ -111,7 +111,7 @@ func (d *BotDispatcher) HandleLevel(gameState *swagger.DungeonsandtrollsGameStat
 		if cmd != nil {
 			commands.Commands[monster.Id] = *cmd
 			// XXX: send individually
-			sendIndividually := false
+			sendIndividually := true
 			sendAsynchronously := true
 			if sendIndividually {
 				commandsCopy := swagger.DungeonsandtrollsCommandsForMonsters{

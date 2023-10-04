@@ -34,10 +34,12 @@ func (b *Bot) getSkillTargetPosition(skill *swagger.DungeonsandtrollsSkill, targ
 	return nil
 }
 
-func (b *Bot) evaluateSkill(skill swagger.DungeonsandtrollsSkill, target MapObject) *SkillResult {
+func (b *Bot) evaluateSkill(skill swagger.DungeonsandtrollsSkill, target MapObject) SkillResult {
+
+	empty := SkillResult{}
 	if !b.areAttributeRequirementMet(*skill.Cost) {
 		b.Logger.Debugw("Skill attributes cost requirement not met")
-		return nil
+		return empty
 	}
 	// TODO: check out of combat
 
@@ -50,32 +52,42 @@ func (b *Bot) evaluateSkill(skill swagger.DungeonsandtrollsSkill, target MapObje
 	)
 	if manhattanDistance(*casterPostion, *targetPosition) > int32(b.calculateAttributesValue(*skill.Range_)) {
 		b.Logger.Debugw("Enemy out of skill range")
-		return nil
+		return empty
 	}
 	if !b.BotState.MapExtended[*targetPosition].lineOfSight {
 		b.Logger.Debugw("Enemy is not in line of sight")
-		return nil
+		return empty
 	}
-	// Check out of combat
+	// TODO: Check out of combat
+
+	radius := int32(b.calculateAttributesValue(*skill.Radius))
 
 	// Eval yourself
 	result := b.evalEffectFor(&b.BotState.Self, skill.CasterEffects, &skill)
-	// Eval target(s)
-	switch *skill.Target {
-	case swagger.NONE_SkillTarget:
-		break
-	case swagger.POSITION_SkillTarget:
-		targets := b.findTargetsInRadius(*targetPosition, int32(b.calculateAttributesValue(*skill.Radius)))
-		for i, _ := range targets {
+	// Eval ground effect around caster
+	if skill.CasterEffects.Flags.GroundEffect {
+		targets := b.findTargetsInRadius(*casterPostion, radius)
+		for i := range targets {
 			target_ := targets[i]
 			result.Add(b.evalEffectFor(&target_, skill.TargetEffects, &skill))
 		}
-		break
-	case swagger.CHARACTER_SkillTarget:
-		result.Add(b.evalEffectFor(&target, skill.TargetEffects, &skill))
-		break
 	}
-	return &result
+	// Eval target if character
+	if *skill.Target == swagger.CHARACTER_SkillTarget {
+		result.Add(b.evalEffectFor(&target, skill.TargetEffects, &skill))
+	}
+
+	// Eval AoE / ground effect around target
+	targets := b.findTargetsInRadius(*targetPosition, radius)
+	for i := range targets {
+		target_ := targets[i]
+		if target_.GetId() == b.BotState.Self.GetId() {
+			// Exclude caster
+			continue
+		}
+		result.Add(b.evalEffectFor(&target_, skill.TargetEffects, &skill))
+	}
+	return result
 }
 
 func (b *Bot) evalEffectFor(target *MapObject, effect *swagger.DungeonsandtrollsSkillEffect, skill *swagger.DungeonsandtrollsSkill) SkillResult {
@@ -88,7 +100,11 @@ func (b *Bot) evalEffectFor(target *MapObject, effect *swagger.Dungeonsandtrolls
 	} else {
 		vitalsScore = b.scoreVitalsWithDamage(target, effect.Attributes, skill)
 	}
-	vitalsScore *= float32(b.calculateAttributesValue(*skill.Duration))
+	duration := float32(b.calculateAttributesValue(*skill.Duration))
+	if duration == 0 {
+		duration = 1
+	}
+	vitalsScore *= duration
 	if effect.Flags.Stun {
 		if b.IsHostile(*target) {
 			// We assume we will have time to deal twice the damage
@@ -136,6 +152,33 @@ func (b *Bot) findTargetsInRange(position swagger.DungeonsandtrollsPosition, dis
 	return targets
 }
 
+func (b *Bot) findTargetsInRangeAsMap(position swagger.DungeonsandtrollsPosition, dist int32) map[int][]MapObject {
+	xStart := position.PositionX - dist
+	yStart := position.PositionY - dist
+	xEnd := position.PositionX + dist
+	yEnd := position.PositionY + dist
+
+	targets := map[int][]MapObject{}
+	for y := yStart; y < yEnd; y++ {
+		for x := xStart; x < xEnd; x++ {
+			pos := makePosition(x, y)
+			distance := manhattanDistance(pos, position)
+			tileInfo, found := b.BotState.MapExtended[pos]
+			if !found || distance > dist {
+				continue
+			}
+			targets[int(distance)] = append(targets[int(distance)], extractTargets(tileInfo.mapObjects)...)
+			if len(targets[int(distance)]) > 0 {
+				b.Logger.Infow("Targets added?",
+					"targetCount", len(targets[int(distance)]),
+					"range", distance,
+				)
+			}
+		}
+	}
+	return targets
+}
+
 func (b *Bot) findTargetsInRadius(position swagger.DungeonsandtrollsPosition, dist int32) []MapObject {
 	xStart := position.PositionX - dist
 	yStart := position.PositionY - dist
@@ -157,10 +200,10 @@ func (b *Bot) findTargetsInRadius(position swagger.DungeonsandtrollsPosition, di
 
 func extractTargets(mapObjects swagger.DungeonsandtrollsMapObjects) []MapObject {
 	targets := []MapObject{}
-	for i, _ := range mapObjects.Players {
+	for i := range mapObjects.Players {
 		targets = append(targets, NewPlayerMapObject(mapObjects, i))
 	}
-	for i, _ := range mapObjects.Monsters {
+	for i := range mapObjects.Monsters {
 		targets = append(targets, NewMonsterMapObject(mapObjects, i))
 	}
 	return targets

@@ -6,29 +6,23 @@ import (
 	swagger "github.com/gdg-garage/dungeons-and-trolls-go-client"
 )
 
-func (b *Bot) evaluateHealSkill(skill *swagger.DungeonsandtrollsSkill, target *MapObject) float32 {
-	if *skill.Target == swagger.NONE_SkillTarget {
-		return 0
-	}
-	range_ := b.calculateAttributesValue(*skill.Range_)
-	if b.BotState.MapExtended[*target.MapObjects.Position].distance > range_ {
-		return 0
-	}
-	return b.scoreVitalsWithDamage(target, skill.TargetEffects.Attributes, skill)
-}
-
 func (b *Bot) scoreVitalsWithDamage(target *MapObject, skillAttributes *swagger.DungeonsandtrollsSkillAttributes, skill *swagger.DungeonsandtrollsSkill) float32 {
 	damage := b.calculateAttributesValue(*skill.DamageAmount)
 	damageAttrs := &swagger.DungeonsandtrollsAttributes{
-		Life: float32(damage),
+		Life:    float32(damage),
+		Stamina: 0,
+		Mana:    0,
 	}
 	return b.scoreVitalsFor(target, skillAttributes, damageAttrs, -1, skill)
 }
 
 func (b *Bot) scoreVitalsWithCost(skillAttributes *swagger.DungeonsandtrollsSkillAttributes, skill *swagger.DungeonsandtrollsSkill) float32 {
 	// Adjust cost by duration
-	// It will be mulitplied by duration again
+	// It will be multiplied by duration again
 	duration := float32(b.calculateAttributesValue(*skill.Duration))
+	if duration == 0 {
+		duration = 1
+	}
 	costAttrs := &swagger.DungeonsandtrollsAttributes{
 		Life:    skill.Cost.Life / duration,
 		Stamina: skill.Cost.Stamina / duration,
@@ -40,10 +34,19 @@ func (b *Bot) scoreVitalsWithCost(skillAttributes *swagger.DungeonsandtrollsSkil
 // Get vitals score for skill
 // Tells you how much the skill will improve your resources (life, stamina, mana)
 // Can be used for both casterEffect and targetEffect skills
+// XXX: Add other attributes after you test, debug, and balance the current version
 func (b *Bot) scoreVitalsFor(target *MapObject, skillAttributes *swagger.DungeonsandtrollsSkillAttributes, extraAttributes *swagger.DungeonsandtrollsAttributes, extraSign float32, skill *swagger.DungeonsandtrollsSkill) float32 {
 	targetAttrs := target.GetAttributes()
 	targetMaxAttrs := target.GetMaxAttributes()
 	skillAttributes = fillSkillAttributes(*skillAttributes)
+
+	b.Logger.Infow("Debug scoreVitalsFor",
+		"extraSign", extraSign,
+		"skillAttributes", skillAttributes,
+		"extraAttributes", extraAttributes,
+		"targetAttrs", targetAttrs,
+		"targetMaxAttrs", targetMaxAttrs,
+	)
 
 	skillLifeGain := float32(calculateAttributesValue(*targetAttrs, *skillAttributes.Life)) + extraSign*extraAttributes.Life
 	skillStaminaGain := float32(calculateAttributesValue(*targetAttrs, *skillAttributes.Stamina)) + extraSign*extraAttributes.Stamina
@@ -52,6 +55,9 @@ func (b *Bot) scoreVitalsFor(target *MapObject, skillAttributes *swagger.Dungeon
 	// Apply duration
 	// XXX: This might make over time skills too significant
 	duration := float32(b.calculateAttributesValue(*skill.Duration))
+	if duration == 0 {
+		duration = 1
+	}
 	skillLifeGain *= duration
 	skillStaminaGain *= duration
 	skillManaGain *= duration
@@ -80,7 +86,7 @@ func (b *Bot) scoreVitalsFor(target *MapObject, skillAttributes *swagger.Dungeon
 
 	scoreDiff := scoreAfter - score
 
-	b.Logger.Debugw("Skill vitals score",
+	b.Logger.Infow("Skill vitals score",
 		"skillName", skill.Name,
 		"skill", skill,
 		"skillAttributes", skillAttributes,
@@ -102,16 +108,35 @@ func (b *Bot) scoreVitalsFor(target *MapObject, skillAttributes *swagger.Dungeon
 		"vitalsScore", score,
 		"vitalsScoreAfter", scoreAfter,
 		"vitalsScoreDiff", scoreDiff,
+		"duration", duration,
 	)
 	return scoreDiff
 }
 
 func (b *Bot) scoreVitalsFunc(lifePercentage, staminaPercentage, manaPercentage float32) float32 {
 	f := func(x float32) float32 {
+		if math.IsNaN(float64(x)) {
+			x = 0
+		}
+		if x < 0 {
+			// don't allow negative percentages
+			x = 0
+		}
 		if x > 1 {
 			// cap score at 100%
 			x = 1
 		}
+		// adjust lower end of the score to never get to ~20x values
+		// results:
+		// 0% -> -8
+		// 10% -> -3
+		// 20% -> -1.33
+		// 30% -> -0.5
+		// 40% -> 0
+		// 50% -> 0.33
+		// 70% -> 0.75
+		// 100% -> 1.09
+		x += 0.1
 		// adding 2 just to make the score usually positive (50% resource == 0 score)
 		return 2 - (float32(1) / x)
 	}

@@ -145,6 +145,7 @@ func (b *Bot) MoveSkill(skill *swagger.DungeonsandtrollsSkill, position *swagger
 		return b.useSkill(*skill, NewMonsterMapObject(mapObjects, 0))
 	} else {
 		if *skill.Target != swagger.POSITION_SkillTarget {
+			b.addFirstYell("NO HOP :(")
 			b.Logger.Errorw("Aborting jump :(")
 			return nil
 		}
