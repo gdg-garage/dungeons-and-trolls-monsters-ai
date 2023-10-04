@@ -14,24 +14,47 @@ func (b *Bot) evaluateHealSkill(skill *swagger.DungeonsandtrollsSkill, target *M
 	if b.BotState.MapExtended[*target.MapObjects.Position].distance > range_ {
 		return 0
 	}
-	return b.scoreVitalsFor(target, skill.TargetEffects.Attributes, skill)
+	return b.scoreVitalsWithDamage(target, skill.TargetEffects.Attributes, skill)
 }
 
-func (b *Bot) scoreVitals(skillAttributes *swagger.DungeonsandtrollsSkillAttributes, skill *swagger.DungeonsandtrollsSkill) float32 {
-	return b.scoreVitalsFor(&b.BotState.Self, skillAttributes, skill)
+func (b *Bot) scoreVitalsWithDamage(target *MapObject, skillAttributes *swagger.DungeonsandtrollsSkillAttributes, skill *swagger.DungeonsandtrollsSkill) float32 {
+	damage := b.calculateAttributesValue(*skill.DamageAmount)
+	damageAttrs := &swagger.DungeonsandtrollsAttributes{
+		Life: float32(damage),
+	}
+	return b.scoreVitalsFor(target, skillAttributes, damageAttrs, -1, skill)
+}
+
+func (b *Bot) scoreVitalsWithCost(skillAttributes *swagger.DungeonsandtrollsSkillAttributes, skill *swagger.DungeonsandtrollsSkill) float32 {
+	// Adjust cost by duration
+	// It will be mulitplied by duration again
+	duration := float32(b.calculateAttributesValue(*skill.Duration))
+	costAttrs := &swagger.DungeonsandtrollsAttributes{
+		Life:    skill.Cost.Life / duration,
+		Stamina: skill.Cost.Stamina / duration,
+		Mana:    skill.Cost.Mana / duration,
+	}
+	return b.scoreVitalsFor(&b.BotState.Self, skillAttributes, costAttrs, -1, skill)
 }
 
 // Get vitals score for skill
 // Tells you how much the skill will improve your resources (life, stamina, mana)
 // Can be used for both casterEffect and targetEffect skills
-func (b *Bot) scoreVitalsFor(target *MapObject, skillAttributes *swagger.DungeonsandtrollsSkillAttributes, skill *swagger.DungeonsandtrollsSkill) float32 {
+func (b *Bot) scoreVitalsFor(target *MapObject, skillAttributes *swagger.DungeonsandtrollsSkillAttributes, extraAttributes *swagger.DungeonsandtrollsAttributes, extraSign float32, skill *swagger.DungeonsandtrollsSkill) float32 {
 	targetAttrs := target.GetAttributes()
 	targetMaxAttrs := target.GetMaxAttributes()
-
 	skillAttributes = fillSkillAttributes(*skillAttributes)
-	skillLifeGain := float32(calculateAttributesValue(*targetAttrs, *skillAttributes.Life)) - skill.Cost.Life
-	skillStaminaGain := float32(calculateAttributesValue(*targetAttrs, *skillAttributes.Stamina)) - skill.Cost.Stamina
-	skillManaGain := float32(calculateAttributesValue(*targetAttrs, *skillAttributes.Mana)) - skill.Cost.Mana
+
+	skillLifeGain := float32(calculateAttributesValue(*targetAttrs, *skillAttributes.Life)) + extraSign*extraAttributes.Life
+	skillStaminaGain := float32(calculateAttributesValue(*targetAttrs, *skillAttributes.Stamina)) + extraSign*extraAttributes.Stamina
+	skillManaGain := float32(calculateAttributesValue(*targetAttrs, *skillAttributes.Mana)) + extraSign*extraAttributes.Mana
+
+	// Apply duration
+	// XXX: This might make over time skills too significant
+	duration := float32(b.calculateAttributesValue(*skill.Duration))
+	skillLifeGain *= duration
+	skillStaminaGain *= duration
+	skillManaGain *= duration
 
 	lifePercentage := targetAttrs.Life / targetMaxAttrs.Life
 	staminaPercentage := targetAttrs.Stamina / targetMaxAttrs.Stamina
@@ -57,7 +80,7 @@ func (b *Bot) scoreVitalsFor(target *MapObject, skillAttributes *swagger.Dungeon
 
 	scoreDiff := scoreAfter - score
 
-	b.Logger.Infow("Skill vitals score",
+	b.Logger.Debugw("Skill vitals score",
 		"skillName", skill.Name,
 		"skill", skill,
 		"skillAttributes", skillAttributes,

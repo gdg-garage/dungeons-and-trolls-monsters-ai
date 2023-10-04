@@ -164,6 +164,18 @@ func (b *Bot) GetAlignment(mo MapObject) int {
 	return AlignmentHostile
 }
 
+func (b *Bot) GetAlignmentSign(mo MapObject) int {
+	switch b.GetAlignment(mo) {
+	case AlignmentHostile:
+		return 1
+	case AlignmentFriendly:
+		return -1
+	default:
+		// Maybe prefer not destroying random stuff
+		return 0
+	}
+}
+
 func (b *Bot) IsHostile(mo MapObject) bool {
 	return b.GetAlignment(mo) == AlignmentHostile
 }

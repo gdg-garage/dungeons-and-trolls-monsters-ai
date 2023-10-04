@@ -63,6 +63,16 @@ func (d *BotDispatcher) HandleTick(gameState *swagger.DungeonsandtrollsGameState
 }
 
 func (d *BotDispatcher) HandleLevel(gameState *swagger.DungeonsandtrollsGameState, level swagger.DungeonsandtrollsLevel) error {
+	// defer func(d *BotDispatcher) error {
+	// 	if err := recover(); err != nil {
+	// 		d.LoggerWTick.Error("PANIC in HandleLevel()",
+	// 			zap.Any("err", err),
+	// 			zap.Any("stack", string(debug.Stack())),
+	// 		)
+	// 		return err.(error)
+	// 	}
+	// 	return nil
+	// }(d)
 	monsters := getMonstersDetailsForLevel(gameState, &level)
 	d.LoggerWTick.Infow("Handling level",
 		"mapLevel", level.Level,

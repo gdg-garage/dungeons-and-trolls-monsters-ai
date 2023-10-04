@@ -172,16 +172,16 @@ func (b *Bot) combat() *swagger.DungeonsandtrollsCommandsBatch {
 				"position", enemy.MapObjects.Position,
 				"myPosition", b.Details.Position,
 			)
-			if skillResult != nil && skillResult.Damage > bestDmg {
+			if skillResult != nil && -int32(skillResult.VitalsHostile) > bestDmg {
 				b.Logger.Infow("Found better skill",
 					"skillName", skill.Name,
 					"skill", skill,
-					"damage", skillResult.Damage,
+					"damage", -skillResult.VitalsHostile,
 					"position", enemy.MapObjects.Position,
 					"myPosition", b.Details.Position,
 				)
 				bestSkill = &skill
-				bestDmg = skillResult.Damage
+				bestDmg = -int32(skillResult.VitalsHostile)
 				bestEnemy = enemy
 			}
 		}
@@ -329,7 +329,7 @@ func (b *Bot) rest() *swagger.DungeonsandtrollsCommandsBatch {
 			continue
 		}
 		// TODO: also check target attributes
-		score := b.scoreVitals(skillAttributes, &skill)
+		score := b.scoreVitalsWithCost(skillAttributes, &skill)
 		if score > bestScore {
 			bestScore = score
 			bestSkill = &skill
