@@ -26,6 +26,8 @@ type BotState struct {
 type Bot struct {
 	MonsterId string
 
+	Config Config
+
 	BotState  BotState
 	GameState *swagger.DungeonsandtrollsGameState
 	Details   MonsterDetails

@@ -114,31 +114,32 @@ func (b *Bot) scoreVitalsFor(target *MapObject, skillAttributes *swagger.Dungeon
 }
 
 func (b *Bot) scoreVitalsFunc(lifePercentage, staminaPercentage, manaPercentage float32) float32 {
-	f := func(x float32) float32 {
+	cleanUp := func(x float32) float32 {
 		if math.IsNaN(float64(x)) {
 			x = 0
 		}
 		if x < 0 {
-			// don't allow negative percentages
-			x = 0
+			return 0
 		}
 		if x > 1 {
-			// cap score at 100%
-			x = 1
+			return 1
 		}
-		// adjust lower end of the score to never get to ~20x values
-		// results:
-		// 0% -> -8
-		// 10% -> -3
-		// 20% -> -1.33
-		// 30% -> -0.5
-		// 40% -> 0
-		// 50% -> 0.33
-		// 70% -> 0.75
-		// 100% -> 1.09
-		x += 0.1
-		// adding 2 just to make the score usually positive (50% resource == 0 score)
-		return 2 - (float32(1) / x)
+		return x
 	}
-	return 4*f(lifePercentage) + 2*f(staminaPercentage) + f(manaPercentage)
+	//
+	// Check out the curves on Wolfram Alpha:
+	// https://www.wolframalpha.com/input?i=log%28%28x*100+%2B+1%29%29+%2F+log%28101%29+for+x+from+0+to+1
+	// https://www.wolframalpha.com/input?i=log%28%28x*100+%2B+1%29%29+%2F+log%28101%29+for+x+in+%280%2C+0.1%2C+0.2%2C+0.3%2C+0.4%2C+0.5%2C+0.6%2C+0.7%2C+0.8%2C+0.9%2C+1%29
+	//
+	// curve aggression for x in {0, 0.1, 0.2, ...}:
+	// 10: {0, 0.289065, 0.458157, 0.57813, 0.671188, 0.747222, 0.811508, 0.867194, 0.916314, 0.960253, 1}
+	// 25: {0, 0.384508, 0.549941, 0.656846, 0.73598, 0.798837, 0.850984, 0.895545, 0.934448, 0.968971, 1}
+	// 50: {0, 0.455707, 0.609868, 0.705166, 0.774328, 0.828647, 0.873382, 0.911413, 0.944491, 0.973757, 1}
+	// 75: {0, 0.494158, 0.640212, 0.728976, 0.792934, 0.842965, 0.884063, 0.918939, 0.949233, 0.976009, 1}
+	// 100: {0, 0.519574, 0.659684, 0.744073, 0.804653, 0.851944, 0.89074, 0.923633, 0.952185, 0.977409, 1}
+	f := func(x float32, curveAggression float32) float32 {
+		x = cleanUp(x)
+		return float32(math.Log(float64((x*curveAggression + 1))) / math.Log(float64(curveAggression)+1))
+	}
+	return 7*f(lifePercentage, 75) + 1.5*f(staminaPercentage, 25) + 1*f(manaPercentage, 10)
 }

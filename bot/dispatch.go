@@ -94,6 +94,7 @@ func (d *BotDispatcher) HandleLevel(gameState *swagger.DungeonsandtrollsGameStat
 			bot = &Bot{
 				MonsterId: monster.Id,
 				BotState:  BotState{},
+				Config:    NewConfig(monster.Monster.Algorithm),
 			}
 			d.Bots[monster.Id] = bot
 		} else {

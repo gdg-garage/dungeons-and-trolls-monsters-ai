@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"math/rand"
 	"os"
 	"time"
 
@@ -20,6 +21,8 @@ func fallbackLog(msg string) {
 }
 
 func main() {
+	rand.Seed(time.Now().UnixNano())
+
 	loggerConfig := zap.NewProductionConfig()
 
 	// Set key names and time format for Better Stack
@@ -73,7 +76,7 @@ func main() {
 	}
 
 	botDispatcher := bot.NewBotDispatcher(client, ctx, logger.Sugar())
-	backoff := 10 * time.Millisecond
+	backoff := 300 * time.Millisecond
 	for {
 		logger.Info("Fetching game state for NEW TICK ...")
 		// Use the client to make API requests
@@ -87,7 +90,7 @@ func main() {
 			backoff *= 2
 			continue
 		}
-		backoff = 10 * time.Millisecond
+		backoff = 300 * time.Millisecond
 		tickStartTime := time.Now()
 		logger.Info("======================= Game state fetched for NEW TICK =======================",
 			zap.Time("tickStartTime", tickStartTime),

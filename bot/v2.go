@@ -12,12 +12,21 @@ func (b *Bot) bestSkill() *swagger.DungeonsandtrollsCommandsBatch {
 	// TODO: big drop -> rest ??? (maybe not really)
 
 	oocSkills := b.filterCastableWithOOCSkills(reqSkills)
+	// Add default move skill
+	oocSkills = append(oocSkills, getDefaultMoveSkill())
+	skillNames := []string{}
+	for s := range oocSkills {
+		skill := oocSkills[s]
+		skillNames = append(skillNames, skill.Name)
+	}
 	b.Logger.Infow("Castable skills",
+		"skillNames", skillNames,
 		"skills", oocSkills,
 		"numSkills", len(oocSkills),
 	)
 	// TODO: big drop -> move to safety
 	skillsByRange := map[int][]swagger.DungeonsandtrollsSkill{}
+
 	maxRange := 0
 	for i := range oocSkills {
 		skill := oocSkills[i]
@@ -27,7 +36,23 @@ func (b *Bot) bestSkill() *swagger.DungeonsandtrollsCommandsBatch {
 			maxRange = range_
 		}
 	}
+
 	targetsByRange := b.findTargetsInRangeAsMap(*b.Details.Position, int32(maxRange))
+	targetsByRange[1] = append(targetsByRange[1], b.getNeighborPositions()...)
+	b.Logger.Infow("Max range",
+		"maxRange", maxRange,
+	)
+	emptyTargets := b.getTargetPositions(int32(maxRange))
+	for t := range emptyTargets {
+		target := emptyTargets[t]
+		dist := b.BotState.MapExtended[*target.MapObjects.Position].distance
+		targetsByRange[dist] = append(targetsByRange[dist], target)
+		b.Logger.Infow("Adding empty target",
+			"position", target.MapObjects.Position,
+			"distance", dist,
+		)
+	}
+
 	allTargets := []MapObject{}
 	targetNames := []string{}
 	for _, targets := range targetsByRange {
@@ -60,6 +85,7 @@ func (b *Bot) bestSkill() *swagger.DungeonsandtrollsCommandsBatch {
 						"skillName", skill.Name,
 						"result", result,
 						"result.VitalsSelf", result.VitalsSelf,
+						"result.Random", result.Random,
 						"resultsCombinedScore", b.getCombinedVitalsScore(result),
 					)
 					if b.isBetterThanSkillResult(result, bestResult) {
@@ -67,6 +93,7 @@ func (b *Bot) bestSkill() *swagger.DungeonsandtrollsCommandsBatch {
 							"skillName", skill.Name,
 							"result", result,
 							"result.VitalsSelf", result.VitalsSelf,
+							"result.Random", result.Random,
 							"resultsCombinedScore", b.getCombinedVitalsScore(result),
 						)
 						bestResult = result
@@ -81,10 +108,13 @@ func (b *Bot) bestSkill() *swagger.DungeonsandtrollsCommandsBatch {
 					b.Logger.Infow("Skill + target evaluated",
 						"skillName", skill.Name,
 						"targetName", target.GetName(),
+						"targetPosition", target.MapObjects.Position,
 						"result", result,
 						"result.VitalsSelf", result.VitalsSelf,
 						"result.VitalsFriendly", result.VitalsFriendly,
 						"result.VitalsHostile", result.VitalsHostile,
+						"result.MovementSelf", result.MovementSelf,
+						"result.Random", result.Random,
 						"resultsCombinedScore", b.getCombinedVitalsScore(result),
 					)
 					if b.isBetterThanSkillResult(result, bestResult) {
@@ -94,6 +124,8 @@ func (b *Bot) bestSkill() *swagger.DungeonsandtrollsCommandsBatch {
 							"result.VitalsSelf", result.VitalsSelf,
 							"result.VitalsFriendly", result.VitalsFriendly,
 							"result.VitalsHostile", result.VitalsHostile,
+							"result.MovementSelf", result.MovementSelf,
+							"result.Random", result.Random,
 							"resultCombinedScore", b.getCombinedVitalsScore(result),
 						)
 						bestResult = result
@@ -129,7 +161,11 @@ func (b *Bot) bestSkill() *swagger.DungeonsandtrollsCommandsBatch {
 
 func (b *Bot) getCombinedVitalsScore(s SkillResult) float32 {
 	// XXX: Coefficients here can be tweaked for aggression vs. survival preference
-	return 2*s.VitalsSelf + s.VitalsFriendly - 4*s.VitalsHostile
+	return b.Config.Preservation*s.VitalsSelf +
+		b.Config.Support*s.VitalsFriendly +
+		-b.Config.Aggression*s.VitalsHostile +
+		b.Config.Restlessness*s.MovementSelf +
+		b.Config.Randomness*s.Random
 }
 
 func (b *Bot) isBetterThanSkillResult(sk1, sk2 SkillResult) bool {

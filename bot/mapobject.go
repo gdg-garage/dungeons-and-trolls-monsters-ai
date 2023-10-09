@@ -30,6 +30,7 @@ const (
 	// MapObjectTypeDecoration = "decoration"
 	MapObjectTypeEffect = "effect"
 	// MapObjectTypeItem   = "item"
+	MapObjectTypeEmpty = "empty"
 )
 
 type MapObject struct {
@@ -38,12 +39,18 @@ type MapObject struct {
 	Index      int
 }
 
+func (mo MapObject) IsEmpty() bool {
+	return mo.Type == MapObjectTypeEmpty
+}
+
 func (mo MapObject) GetId() string {
 	switch mo.Type {
 	case MapObjectTypePlayer:
 		return mo.MapObjects.Players[mo.Index].Id
 	case MapObjectTypeMonster:
 		return mo.MapObjects.Monsters[mo.Index].Id
+	case MapObjectTypeEmpty:
+		return "<empty map object>"
 	case MapObjectTypeEffect:
 		log.Println("ERROR: MapObject.GetId(): Can't get ID for Effect")
 		return ""
@@ -55,6 +62,9 @@ func (mo MapObject) GetId() string {
 }
 
 func (mo MapObject) GetIdentifier() *swagger.DungeonsandtrollsIdentifier {
+	if mo.IsEmpty() {
+		panic("PANIC: Can't get identifier for empty MapObject")
+	}
 	return &swagger.DungeonsandtrollsIdentifier{
 		Id: mo.GetId(),
 	}
@@ -66,6 +76,8 @@ func (mo MapObject) GetName() string {
 		return mo.MapObjects.Players[mo.Index].Name
 	case MapObjectTypeMonster:
 		return mo.MapObjects.Monsters[mo.Index].Name
+	case MapObjectTypeEmpty:
+		return "<empty map object>"
 	case MapObjectTypeEffect:
 		log.Println("ERROR: MapObject.GetName(): Can't get name for Effect")
 		return ""
@@ -184,6 +196,17 @@ func (b *Bot) IsNeutral(mo MapObject) bool {
 	return b.GetAlignment(mo) == AlignmentNeutral
 }
 
+func (b *Bot) GetStunInfo(mo MapObject) *swagger.DungeonsandtrollsStun {
+	if mo.Type == MapObjectTypePlayer {
+		return mo.MapObjects.Players[mo.Index].Stun
+	}
+	if mo.Type == MapObjectTypeMonster {
+		return mo.MapObjects.Monsters[mo.Index].Stun
+	}
+	log.Println("ERROR: GetStunInfo(): Unknown type")
+	return nil
+}
+
 func NewPlayerMapObject(mapObjects swagger.DungeonsandtrollsMapObjects, index int) MapObject {
 	if len(mapObjects.Players) <= index {
 		log.Println("ERROR: New MapObject: Index out of range for Players")
@@ -214,6 +237,15 @@ func NewEffectMapObject(mapObjects swagger.DungeonsandtrollsMapObjects, index in
 		MapObjects: mapObjects,
 		Type:       MapObjectTypeEffect,
 		Index:      index,
+	}
+}
+
+func NewEmptyMapObject(position swagger.DungeonsandtrollsPosition) MapObject {
+	return MapObject{
+		MapObjects: swagger.DungeonsandtrollsMapObjects{
+			Position: &position,
+		},
+		Type: MapObjectTypeEmpty,
 	}
 }
 

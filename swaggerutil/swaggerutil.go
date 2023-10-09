@@ -26,10 +26,14 @@ func LogSuccess(logger *zap.SugaredLogger, httpResp *http.Response, method strin
 func LogError(logger *zap.SugaredLogger, err error, httpResp *http.Response, method string, request interface{}) {
 	loggerWErr := logger.With(
 		zap.Error(err),
-		"statusCode", httpResp.StatusCode,
 		"method", method,
 		"requestPayload", request,
 	)
+	if httpResp != nil {
+		loggerWErr = loggerWErr.With(
+			"statusCode", httpResp.StatusCode,
+		)
+	}
 	swaggerErr, ok := err.(swagger.GenericSwaggerError)
 	if ok {
 		loggerWErr.Errorw("Server responded with error",

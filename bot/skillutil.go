@@ -124,7 +124,14 @@ func (b *Bot) useSkill(skill swagger.DungeonsandtrollsSkill, target MapObject) *
 		"skill", skill,
 		"skillTargetType", skill.Target,
 		"target", target.GetName(),
+		"targetPosition", target.GetPosition(),
 	)
+	if isDefaultMoveSkill(skill) {
+		b.addFirstYell("Catch me :)")
+		return &swagger.DungeonsandtrollsCommandsBatch{
+			Move: target.MapObjects.Position,
+		}
+	}
 	if *skill.Target == swagger.CHARACTER_SkillTarget {
 		return &swagger.DungeonsandtrollsCommandsBatch{
 			Skill: &swagger.DungeonsandtrollsSkillUse{
