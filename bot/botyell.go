@@ -6,12 +6,20 @@ import (
 	swagger "github.com/gdg-garage/dungeons-and-trolls-go-client"
 )
 
-func (b *Bot) addYell(msg string) {
+func (b *Bot) addPublicYell(msg string) {
 	b.BotState.Yells = append(b.BotState.Yells, msg)
 }
 
+func (b *Bot) addYell(msg string) {
+	if b.Environment == "dev" {
+		b.BotState.Yells = append(b.BotState.Yells, msg)
+	}
+}
+
 func (b *Bot) addFirstYell(msg string) {
-	b.BotState.Yells = append([]string{msg}, b.BotState.Yells...)
+	if b.Environment == "dev" {
+		b.BotState.Yells = append([]string{msg}, b.BotState.Yells...)
+	}
 }
 
 func (b *Bot) constructYellCommand(cmd *swagger.DungeonsandtrollsCommandsBatch) *swagger.DungeonsandtrollsCommandsBatch {

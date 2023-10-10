@@ -17,7 +17,6 @@ type BotState struct {
 	TargetPosition swagger.DungeonsandtrollsPosition
 	// TargetObject   swagger.DungeonsandtrollsMapObjects
 	// Target         swagger.DungeonsandtrollsMonster
-	// Mood           Mood
 }
 
 // BotState is managed by bot algorithm
@@ -36,7 +35,8 @@ type Bot struct {
 	PrevGameState *swagger.DungeonsandtrollsGameState
 	PrevDetails   MonsterDetails
 
-	Logger *zap.SugaredLogger
+	Logger      *zap.SugaredLogger
+	Environment string
 }
 
 func (b *Bot) Run() *swagger.DungeonsandtrollsCommandsBatch {

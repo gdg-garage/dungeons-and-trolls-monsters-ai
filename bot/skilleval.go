@@ -84,7 +84,7 @@ func (b *Bot) evaluateSkill(skill swagger.DungeonsandtrollsSkill, target MapObje
 	result.Random = rand.Float32()
 	// Eval movement for self
 	if skill.CasterEffects.Flags.Movement {
-		result.MovementSelf = b.scoreMovement(targetPosition)
+		result.MovementSelf = b.scoreMovementDiff(targetPosition)
 	}
 	// Eval ground effect around caster
 	if skill.CasterEffects.Flags.GroundEffect {
@@ -273,15 +273,44 @@ func euclidDistance(a swagger.DungeonsandtrollsPosition, b swagger.Dungeonsandtr
 	return int32(math.Floor(math.Sqrt(math.Pow(float64(a.PositionX-b.PositionX), 2) + math.Pow(float64(a.PositionY-b.PositionY), 2))))
 }
 
+func (b *Bot) scoreMovementDiff(position *swagger.DungeonsandtrollsPosition) float32 {
+	return b.scoreMovement(position) - b.scoreMovement(b.Details.Position)
+}
+
 func (b *Bot) scoreMovement(position *swagger.DungeonsandtrollsPosition) float32 {
-	dist := b.BotState.MapExtended[*position].distance
+	// dist := b.BotState.MapExtended[*position].distance
 	distances := b.calculateDistancesForPosition(position)
+	distances.DistanceToClosestHostile += 1
+	distances.DistanceToClosestFriendly += 1
+	distances.DistanceToSelf += 1
+	distances.NumCloseFriendly += 1
+	distances.NumCloseHostiles += 1
+	if distances.NumCloseHostiles > 10 {
+		distances.NumCloseHostiles = 10
+	}
+	if distances.NumCloseFriendly > 10 {
+		distances.NumCloseFriendly = 10
+	}
+	scoreClosestHostile := 1 / float32(distances.DistanceToClosestHostile)
+	scoreClosestFriendly := 1 / float32(distances.DistanceToClosestFriendly)
+	scoreDistToSelf := float32(distances.DistanceToSelf) / 10
+	scoreNumHostiles := float32(distances.NumCloseHostiles) / 10
+	scoreNumFriendly := float32(distances.NumCloseFriendly) / 10
+
 	vitalsSelf := b.getCurrentVitals()
+	vitalsCoef := (vitalsSelf - 5) / 5 // assuming 0-10
 	// TODO: use distances and vitals
-	result := float32(dist) / 10
+	result := b.Config.Restlessness*scoreDistToSelf*0.5 +
+		scoreClosestHostile*6 +
+		scoreClosestFriendly*1 +
+		vitalsCoef*scoreNumHostiles*2 +
+		scoreNumFriendly*1
+
 	b.Logger.Infow("Evaluated movement score for self",
 		"result.MovementSelf", result,
-		"distance", dist,
+		"distances", distances,
+		"myPosition", b.Details.Position,
+		"position", position,
 	)
 	return result
 }
@@ -308,8 +337,8 @@ const CLOSE_DISTANCE = 7
 func (b *Bot) calculateDistancesForPosition(position *swagger.DungeonsandtrollsPosition) Distances {
 	dists := Distances{
 		DistanceToSelf:            int32(b.BotState.MapExtended[*position].distance),
-		DistanceToClosestHostile:  math.MaxInt32,
-		DistanceToClosestFriendly: math.MaxInt32,
+		DistanceToClosestHostile:  math.MaxInt32 - 1,
+		DistanceToClosestFriendly: math.MaxInt32 - 1,
 		NumCloseFriendly:          1, // self
 	}
 	for _, obj := range b.Details.CurrentMap.Objects {
@@ -342,8 +371,14 @@ func (b *Bot) calculateDistancesForPosition(position *swagger.DungeonsandtrollsP
 			}
 			mo := NewMonsterMapObject(obj, i)
 			if b.IsHostile(mo) {
+				if dist < dists.DistanceToClosestHostile {
+					dists.DistanceToClosestHostile = dist
+				}
 				dists.NumCloseHostiles++
 			} else if b.IsFriendly(mo) {
+				if dist < dists.DistanceToClosestFriendly {
+					dists.DistanceToClosestFriendly = dist
+				}
 				dists.NumCloseFriendly++
 			}
 		}

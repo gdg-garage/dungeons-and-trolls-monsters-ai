@@ -133,23 +133,27 @@ func (b *Bot) useSkill(skill swagger.DungeonsandtrollsSkill, target MapObject) *
 		}
 	}
 	if *skill.Target == swagger.CHARACTER_SkillTarget {
+		msg := fmt.Sprintf(
+			"Using skill %s! -> [%d, %d] %s",
+			skill.Name,
+			target.MapObjects.Position.PositionX,
+			target.MapObjects.Position.PositionY,
+			target.GetName())
+		b.addFirstYell(msg)
 		return &swagger.DungeonsandtrollsCommandsBatch{
 			Skill: &swagger.DungeonsandtrollsSkillUse{
 				SkillId:  skill.Id,
 				TargetId: target.GetId(),
 			},
-			Yell: &swagger.DungeonsandtrollsMessage{
-				Text: fmt.Sprintf(
-					"Using skill %s! -> [%d, %d] %s",
-					skill.Name,
-					target.MapObjects.Position.PositionX,
-					target.MapObjects.Position.PositionY,
-					target.GetName(),
-				),
-			},
 		}
 	}
 	if *skill.Target == swagger.POSITION_SkillTarget {
+		msg := fmt.Sprintf(
+			"Using skill %s! -> [%d, %d]",
+			skill.Name,
+			target.MapObjects.Position.PositionX,
+			target.MapObjects.Position.PositionY)
+		b.addFirstYell(msg)
 		return &swagger.DungeonsandtrollsCommandsBatch{
 			Skill: &swagger.DungeonsandtrollsSkillUse{
 				SkillId: skill.Id,
@@ -158,22 +162,13 @@ func (b *Bot) useSkill(skill swagger.DungeonsandtrollsSkill, target MapObject) *
 					PositionY: target.MapObjects.Position.PositionY,
 				},
 			},
-			Yell: &swagger.DungeonsandtrollsMessage{
-				Text: fmt.Sprintf(
-					"Using skill %s! -> [%d, %d]",
-					skill.Name,
-					target.MapObjects.Position.PositionX,
-					target.MapObjects.Position.PositionY),
-			},
 		}
 	}
 	if *skill.Target == swagger.NONE_SkillTarget {
+		b.addFirstYell("Using skill " + skill.Name + ".")
 		return &swagger.DungeonsandtrollsCommandsBatch{
 			Skill: &swagger.DungeonsandtrollsSkillUse{
 				SkillId: skill.Id,
-			},
-			Yell: &swagger.DungeonsandtrollsMessage{
-				Text: "Using skill " + skill.Name + ".",
 			},
 		}
 	}

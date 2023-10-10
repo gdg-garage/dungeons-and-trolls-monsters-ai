@@ -62,7 +62,15 @@ func main() {
 
 	// Initialize the HTTP client and set the base URL for the API
 	cfg := swagger.NewConfiguration()
-	cfg.BasePath = "https://docker.tivvit.cz"
+	cfg.BasePath = "http://10.0.1.63:80"
+	environment := "prod"
+	if os.Getenv("DNT_DEV") == "true" {
+		cfg.BasePath = "https://docker.tivvit.cz"
+		environment = "dev"
+	}
+	logger = logger.With(
+		zap.String("environment", environment),
+	)
 
 	// Set the X-API-key header value
 	ctx := context.WithValue(context.Background(), swagger.ContextAPIKey, swagger.APIKey{Key: apiKey})
@@ -75,7 +83,7 @@ func main() {
 		return
 	}
 
-	botDispatcher := bot.NewBotDispatcher(client, ctx, logger.Sugar())
+	botDispatcher := bot.NewBotDispatcher(client, ctx, logger.Sugar(), environment)
 	backoff := 300 * time.Millisecond
 	for {
 		logger.Info("Fetching game state for NEW TICK ...")

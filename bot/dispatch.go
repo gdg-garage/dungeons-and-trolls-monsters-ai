@@ -30,15 +30,17 @@ type BotDispatcher struct {
 	Logger        *zap.SugaredLogger
 	LoggerWTick   *zap.SugaredLogger
 	TickStartTime time.Time
+	Environment   string
 }
 
-func NewBotDispatcher(client *swagger.APIClient, ctx context.Context, logger *zap.SugaredLogger) *BotDispatcher {
+func NewBotDispatcher(client *swagger.APIClient, ctx context.Context, logger *zap.SugaredLogger, environment string) *BotDispatcher {
 	return &BotDispatcher{
-		Client:   client,
-		Ctx:      ctx,
-		Bots:     make(map[string]*Bot),
-		BotsLock: sync.Mutex{},
-		Logger:   logger,
+		Client:      client,
+		Ctx:         ctx,
+		Bots:        make(map[string]*Bot),
+		BotsLock:    sync.Mutex{},
+		Logger:      logger,
+		Environment: environment,
 	}
 }
 
@@ -92,9 +94,10 @@ func (d *BotDispatcher) HandleLevel(gameState *swagger.DungeonsandtrollsGameStat
 		if !found {
 			// initialize bot / new monster
 			bot = &Bot{
-				MonsterId: monster.Id,
-				BotState:  BotState{},
-				Config:    NewConfig(monster.Monster.Algorithm),
+				MonsterId:   monster.Id,
+				BotState:    BotState{},
+				Config:      NewConfig(monster.Monster.Algorithm),
+				Environment: d.Environment,
 			}
 			d.Bots[monster.Id] = bot
 		} else {
