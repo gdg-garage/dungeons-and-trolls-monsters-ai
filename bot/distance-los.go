@@ -143,7 +143,7 @@ func (b *Bot) calculateDistanceAndLineOfSight(level int32, currentPosition swagg
 				row += "~"
 			}
 		}
-		b.Logger.Debugf("Map row: %s (y = %d)", row, y)
+		b.Logger.Debugf("Map row: %s (y = %d)\n", row, y)
 	}
 	return resultMap
 }

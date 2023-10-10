@@ -43,19 +43,22 @@ func (b *Bot) getSkillTargetPosition(skill *swagger.DungeonsandtrollsSkill, targ
 	return nil
 }
 
-func (b *Bot) evaluateSkill(skill swagger.DungeonsandtrollsSkill, target MapObject) SkillResult {
-	empty := SkillResult{}
+func (b *Bot) isLegalSkillTargetCombination(skill swagger.DungeonsandtrollsSkill, target MapObject) bool {
 	if target.IsEmpty() && *skill.Target != swagger.POSITION_SkillTarget {
 		// Target CHARACTER can't be used with empty targets
 		// Target NONE is possible but useless - we use "self" to evaluate "target NONE" skills
 		b.Logger.Infow("Skipping skill evaluation for empty target")
-		return empty
+		return false
 	}
+	return true
+}
+
+func (b *Bot) evaluateSkill(skill swagger.DungeonsandtrollsSkill, target MapObject) SkillResult {
+	empty := SkillResult{}
 	if !b.areAttributeRequirementMet(*skill.Cost) {
 		b.Logger.Infow("Skill attributes cost requirement not met")
 		return empty
 	}
-	// TODO: check out of combat
 
 	casterPostion := b.Details.Position
 	targetPosition := b.getSkillTargetPosition(&skill, &target)
@@ -155,14 +158,19 @@ func (b *Bot) evalEffectFor(target *MapObject, effect *swagger.Dungeonsandtrolls
 	// XXX: Maybe make bigger targets worth more
 	//      Not relevant because players are on the same level
 	// vitalsScore *= target.GetMaxAttributes().Life
+	if target.GetId() == b.BotState.Self.GetId() {
+		return SkillResult{
+			VitalsSelf: vitalsScore,
+		}
+	}
 	if b.IsHostile(*target) {
 		return SkillResult{
 			VitalsHostile: vitalsScore,
 		}
-	} else {
-		return SkillResult{
-			VitalsFriendly: vitalsScore,
-		}
+	}
+	// Neutral effects are included in friendly for simplicity
+	return SkillResult{
+		VitalsFriendly: vitalsScore,
 	}
 }
 
@@ -248,6 +256,10 @@ func extractTargets(mapObjects swagger.DungeonsandtrollsMapObjects) []MapObject 
 		targets = append(targets, NewPlayerMapObject(mapObjects, i))
 	}
 	for i := range mapObjects.Monsters {
+		if mapObjects.Monsters[i].Faction == "neutral" {
+			// Do not target neutral monsters (chests, etc.)
+			continue
+		}
 		targets = append(targets, NewMonsterMapObject(mapObjects, i))
 	}
 	return targets
@@ -263,10 +275,78 @@ func euclidDistance(a swagger.DungeonsandtrollsPosition, b swagger.Dungeonsandtr
 
 func (b *Bot) scoreMovement(position *swagger.DungeonsandtrollsPosition) float32 {
 	dist := b.BotState.MapExtended[*position].distance
+	distances := b.calculateDistancesForPosition(position)
+	vitalsSelf := b.getCurrentVitals()
+	// TODO: use distances and vitals
 	result := float32(dist) / 10
 	b.Logger.Infow("Evaluated movement score for self",
 		"result.MovementSelf", result,
 		"distance", dist,
 	)
 	return result
+}
+
+func (b *Bot) getCurrentVitals() float32 {
+	monster := b.Details.Monster
+	staminaPercentage := monster.Attributes.Stamina / monster.MaxAttributes.Stamina
+	manaPercentage := monster.Attributes.Mana / monster.MaxAttributes.Mana
+
+	return b.scoreVitalsFunc(monster.LifePercentage, staminaPercentage, manaPercentage)
+}
+
+type Distances struct {
+	DistanceToClosestHostile  int32
+	DistanceToClosestFriendly int32
+	DistanceToSelf            int32
+
+	NumCloseHostiles int
+	NumCloseFriendly int
+}
+
+const CLOSE_DISTANCE = 7
+
+func (b *Bot) calculateDistancesForPosition(position *swagger.DungeonsandtrollsPosition) Distances {
+	dists := Distances{
+		DistanceToSelf:            int32(b.BotState.MapExtended[*position].distance),
+		DistanceToClosestHostile:  math.MaxInt32,
+		DistanceToClosestFriendly: math.MaxInt32,
+		NumCloseFriendly:          1, // self
+	}
+	for _, obj := range b.Details.CurrentMap.Objects {
+		if !b.BotState.MapExtended[*obj.Position].lineOfSight {
+			// Skip position without line of sight
+			continue
+		}
+		dist := manhattanDistance(*b.Details.Position, *obj.Position)
+		if len(obj.Players) > 0 {
+			mo := NewPlayerMapObject(obj, 0)
+			if b.IsHostile(mo) {
+				if dist < dists.DistanceToClosestHostile {
+					dists.DistanceToClosestHostile = dist
+				}
+				dists.NumCloseHostiles += len(obj.Players)
+			} else if b.IsFriendly(mo) {
+				if dist < dists.DistanceToClosestFriendly {
+					dists.DistanceToClosestFriendly = dist
+				}
+				dists.NumCloseFriendly += len(obj.Players)
+			}
+		}
+		if dist > CLOSE_DISTANCE {
+			continue
+		}
+
+		for i, monster := range obj.Monsters {
+			if monster.Faction == "neutral" {
+				continue
+			}
+			mo := NewMonsterMapObject(obj, i)
+			if b.IsHostile(mo) {
+				dists.NumCloseHostiles++
+			} else if b.IsFriendly(mo) {
+				dists.NumCloseFriendly++
+			}
+		}
+	}
+	return dists
 }

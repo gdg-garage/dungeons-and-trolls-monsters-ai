@@ -1,8 +1,6 @@
 package bot
 
 import (
-	"math/rand"
-
 	swagger "github.com/gdg-garage/dungeons-and-trolls-go-client"
 )
 
@@ -37,49 +35,30 @@ func isDefaultMoveSkill(skill swagger.DungeonsandtrollsSkill) bool {
 	return skill.Name == skillDefaultMove
 }
 
-func (b *Bot) getNeighborPositions() []MapObject {
-	x := b.Details.Position.PositionX
-	y := b.Details.Position.PositionY
-	positions := []swagger.DungeonsandtrollsPosition{
-		makePosition(x-1, y),
-		makePosition(x+1, y),
-		makePosition(x, y-1),
-		makePosition(x, y+1),
-	}
+func (b *Bot) getEmptyPositionsAsTargets(maxRange int32) []MapObject {
+	return b.getEmptyPositionsAsTargetsFromPosition(*b.Details.Position, maxRange)
+}
+
+func (b *Bot) getEmptyPositionsAsTargetsFromPosition(position swagger.DungeonsandtrollsPosition, dist int32) []MapObject {
+	xStart := position.PositionX - dist
+	yStart := position.PositionY - dist
+	xEnd := position.PositionX + dist
+	yEnd := position.PositionY + dist
+
 	targets := []MapObject{}
-	for _, pos := range positions {
-		if b.BotState.MapExtended[pos].mapObjects.IsFree {
-			mapObject := NewEmptyMapObject(pos)
-			targets = append(targets, mapObject)
+	for y := yStart; y < yEnd; y++ {
+		for x := xStart; x < xEnd; x++ {
+			pos := makePosition(x, y)
+			if !b.isInBounds(b.Details.Level, pos) || manhattanDistance(pos, position) > dist {
+				continue
+			}
+			tileInfo, found := b.BotState.MapExtended[pos]
+			if found && (!tileInfo.mapObjects.IsFree || len(tileInfo.mapObjects.Monsters) > 0 || len(tileInfo.mapObjects.Players) > 0) {
+				// Skip non-free tiles or tiles with monsters or players
+				continue
+			}
+			targets = append(targets, NewEmptyMapObject(pos))
 		}
 	}
 	return targets
-}
-
-func (b *Bot) getTargetPositions(maxRange int32) []MapObject {
-	b.Logger.Infow("Getting target positions up to max range",
-		"maxRange", maxRange,
-	)
-	positions := []MapObject{}
-	for d := 1; d < int(maxRange); d++ {
-		for i := 0; i < 6; i++ {
-			distanceX := rand.Intn(2*d+2) - d
-			distanceY := rand.Intn(2*d+2) - d
-			newX := b.Details.Position.PositionX + int32(distanceX)
-			newY := b.Details.Position.PositionY + int32(distanceY)
-
-			position := makePosition(newX, newY)
-			tileInfo, found := b.BotState.MapExtended[position]
-			if !found || !tileInfo.mapObjects.IsFree {
-				// unreachable or not free
-				continue
-			}
-			obj := NewEmptyMapObject(position)
-			positions = append(positions, obj)
-			if len(positions) >= d*2 {
-				break
-			}
-		}
-	}
-	return positions
 }

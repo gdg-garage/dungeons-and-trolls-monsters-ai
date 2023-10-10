@@ -3,7 +3,7 @@ package bot
 import swagger "github.com/gdg-garage/dungeons-and-trolls-go-client"
 
 func (b *Bot) bestSkill() *swagger.DungeonsandtrollsCommandsBatch {
-	allSkills := getAllSkills(b.Details.Monster.EquippedItems)
+	allSkills := b.filterActiveSkills(getAllSkills(b.Details.Monster.EquippedItems))
 	b.Logger.Infow("All skills",
 		"skills", allSkills,
 		"numSkills", len(allSkills),
@@ -38,11 +38,10 @@ func (b *Bot) bestSkill() *swagger.DungeonsandtrollsCommandsBatch {
 	}
 
 	targetsByRange := b.findTargetsInRangeAsMap(*b.Details.Position, int32(maxRange))
-	targetsByRange[1] = append(targetsByRange[1], b.getNeighborPositions()...)
 	b.Logger.Infow("Max range",
 		"maxRange", maxRange,
 	)
-	emptyTargets := b.getTargetPositions(int32(maxRange))
+	emptyTargets := b.getEmptyPositionsAsTargets(int32(maxRange))
 	for t := range emptyTargets {
 		target := emptyTargets[t]
 		dist := b.BotState.MapExtended[*target.MapObjects.Position].distance
@@ -80,7 +79,11 @@ func (b *Bot) bestSkill() *swagger.DungeonsandtrollsCommandsBatch {
 			for s := range skills {
 				skill := skills[s]
 				if *skill.Target == swagger.NONE_SkillTarget {
-					result := b.evaluateSkill(skill, b.BotState.Self)
+					target := b.BotState.Self
+					if !b.isLegalSkillTargetCombination(skill, target) {
+						continue
+					}
+					result := b.evaluateSkill(skill, target)
 					b.Logger.Infow("Skill (target none) evaluated",
 						"skillName", skill.Name,
 						"result", result,
@@ -104,6 +107,9 @@ func (b *Bot) bestSkill() *swagger.DungeonsandtrollsCommandsBatch {
 				}
 				for t := range targets {
 					target := targets[t]
+					if !b.isLegalSkillTargetCombination(skill, target) {
+						continue
+					}
 					result := b.evaluateSkill(skill, target)
 					b.Logger.Infow("Skill + target evaluated",
 						"skillName", skill.Name,

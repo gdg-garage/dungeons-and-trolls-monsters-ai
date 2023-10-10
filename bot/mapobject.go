@@ -125,6 +125,9 @@ func (mo MapObject) GetFaction() string {
 	if mo.Type == MapObjectTypePlayer {
 		return "player"
 	}
+	if mo.Type == MapObjectTypeEmpty {
+		return "<empty position>"
+	}
 	if mo.Type != MapObjectTypeMonster {
 		log.Println("ERROR: MapObject.GetFaction(): Unknown type")
 		return "unknown"
