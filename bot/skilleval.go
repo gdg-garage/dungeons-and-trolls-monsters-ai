@@ -84,7 +84,7 @@ func (b *Bot) evaluateSkill(skill swagger.DungeonsandtrollsSkill, target MapObje
 	result.Random = rand.Float32()
 	// Eval movement for self
 	if skill.CasterEffects.Flags.Movement {
-		result.MovementSelf = b.scoreMovementDiff(targetPosition)
+		result.MovementSelf = b.scoreMovementDiff(targetPosition) / 10
 	}
 	// Eval ground effect around caster
 	if skill.CasterEffects.Flags.GroundEffect {
@@ -278,11 +278,7 @@ func (b *Bot) scoreMovementDiff(position *swagger.DungeonsandtrollsPosition) flo
 }
 
 func (b *Bot) scoreMovement(position *swagger.DungeonsandtrollsPosition) float32 {
-	// dist := b.BotState.MapExtended[*position].distance
 	distances := b.calculateDistancesForPosition(position)
-	distances.DistanceToClosestHostile += 1
-	distances.DistanceToClosestFriendly += 1
-	distances.DistanceToSelf += 1
 	distances.NumCloseFriendly += 1
 	distances.NumCloseHostiles += 1
 	if distances.NumCloseHostiles > 10 {
@@ -291,26 +287,57 @@ func (b *Bot) scoreMovement(position *swagger.DungeonsandtrollsPosition) float32
 	if distances.NumCloseFriendly > 10 {
 		distances.NumCloseFriendly = 10
 	}
-	scoreClosestHostile := 1 / float32(distances.DistanceToClosestHostile)
-	scoreClosestFriendly := 1 / float32(distances.DistanceToClosestFriendly)
+	scoreClosestHostile := 10 / float32(distances.DistanceToClosestHostile+9)
+	if distances.DistanceToClosestHostile < 2 {
+		scoreClosestHostile -= 0.08
+		if distances.DistanceToClosestHostile == 0 {
+			scoreClosestHostile -= 0.06
+		}
+	}
+	scoreClosestFriendly := 10 / float32(distances.DistanceToClosestFriendly+9)
+	if distances.DistanceToClosestHostile < 2 {
+		scoreClosestHostile -= 0.08
+		if distances.DistanceToClosestHostile == 0 {
+			scoreClosestHostile -= 0.06
+		}
+	}
+	scoreTargetPosition := 10 / float32(distances.DistanceToTargetPosition+9)
+
 	scoreDistToSelf := float32(distances.DistanceToSelf) / 10
 	scoreNumHostiles := float32(distances.NumCloseHostiles) / 10
 	scoreNumFriendly := float32(distances.NumCloseFriendly) / 10
 
+	scorePosition := float32(0)
+	tileInfo, found := b.BotState.MapExtended[*position]
+	if found {
+		if tileInfo.mapObjects.IsStairs || tileInfo.mapObjects.IsSpawn {
+			scorePosition -= 0.5
+		}
+	}
+
 	vitalsSelf := b.getCurrentVitals()
 	vitalsCoef := (vitalsSelf - 5) / 5 // assuming 0-10
 	// TODO: use distances and vitals
-	result := b.Config.Restlessness*scoreDistToSelf*0.5 +
-		scoreClosestHostile*6 +
+	result := b.Config.Restlessness*scoreDistToSelf +
+		scoreClosestHostile*5 +
 		scoreClosestFriendly*1 +
+		scoreTargetPosition*2 +
 		vitalsCoef*scoreNumHostiles*2 +
-		scoreNumFriendly*1
+		scoreNumFriendly*1 +
+		scorePosition
 
 	b.Logger.Infow("Evaluated movement score for self",
 		"result.MovementSelf", result,
 		"distances", distances,
 		"myPosition", b.Details.Position,
 		"position", position,
+		"scoreClosestHostile", scoreClosestHostile,
+		"scoreClosestFriendly", scoreClosestFriendly,
+		"scoreDistToSelf", scoreDistToSelf,
+		"scoreNumHostiles", scoreNumHostiles,
+		"scoreNumFriendly", scoreNumFriendly,
+		"vitalsSelf", vitalsSelf,
+		"vitalsCoef", vitalsCoef,
 	)
 	return result
 }
@@ -327,6 +354,7 @@ type Distances struct {
 	DistanceToClosestHostile  int32
 	DistanceToClosestFriendly int32
 	DistanceToSelf            int32
+	DistanceToTargetPosition  int32
 
 	NumCloseHostiles int
 	NumCloseFriendly int
@@ -336,9 +364,10 @@ const CLOSE_DISTANCE = 7
 
 func (b *Bot) calculateDistancesForPosition(position *swagger.DungeonsandtrollsPosition) Distances {
 	dists := Distances{
-		DistanceToSelf:            int32(b.BotState.MapExtended[*position].distance),
+		DistanceToSelf:            manhattanDistance(*b.Details.Position, *position),
 		DistanceToClosestHostile:  math.MaxInt32 - 1,
 		DistanceToClosestFriendly: math.MaxInt32 - 1,
+		DistanceToTargetPosition:  math.MaxInt32 - 1,
 		NumCloseFriendly:          1, // self
 	}
 	for _, obj := range b.Details.CurrentMap.Objects {
@@ -346,7 +375,7 @@ func (b *Bot) calculateDistancesForPosition(position *swagger.DungeonsandtrollsP
 			// Skip position without line of sight
 			continue
 		}
-		dist := manhattanDistance(*b.Details.Position, *obj.Position)
+		dist := manhattanDistance(*position, *obj.Position)
 		if len(obj.Players) > 0 {
 			mo := NewPlayerMapObject(obj, 0)
 			if b.IsHostile(mo) {

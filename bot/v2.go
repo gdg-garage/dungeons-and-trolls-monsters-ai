@@ -48,6 +48,7 @@ func (b *Bot) bestSkill() *swagger.DungeonsandtrollsCommandsBatch {
 		targetsByRange[dist] = append(targetsByRange[dist], target)
 		b.Logger.Infow("Adding empty target",
 			"position", target.MapObjects.Position,
+			"myPosition", b.Details.Position,
 			"distance", dist,
 		)
 	}
@@ -115,6 +116,7 @@ func (b *Bot) bestSkill() *swagger.DungeonsandtrollsCommandsBatch {
 						"skillName", skill.Name,
 						"targetName", target.GetName(),
 						"targetPosition", target.MapObjects.Position,
+						"myPosition", b.Details.Position,
 						"result", result,
 						"result.VitalsSelf", result.VitalsSelf,
 						"result.VitalsFriendly", result.VitalsFriendly,
@@ -126,6 +128,9 @@ func (b *Bot) bestSkill() *swagger.DungeonsandtrollsCommandsBatch {
 					if b.isBetterThanSkillResult(result, bestResult) {
 						b.Logger.Infow("New best skill + target combination.",
 							"skillName", skill.Name,
+							"targetName", target.GetName(),
+							"targetPosition", target.MapObjects.Position,
+							"myPosition", b.Details.Position,
 							"result", result,
 							"result.VitalsSelf", result.VitalsSelf,
 							"result.VitalsFriendly", result.VitalsFriendly,
@@ -149,7 +154,7 @@ func (b *Bot) bestSkill() *swagger.DungeonsandtrollsCommandsBatch {
 		if move != nil {
 			return move
 		}
-		return b.randomWalk()
+		return nil //b.randomWalk()
 	}
 	b.Logger.Infow("Best skill + target combination!!!",
 		"skillName", bestSkill.Name,
@@ -170,7 +175,7 @@ func (b *Bot) getCombinedVitalsScore(s SkillResult) float32 {
 	return b.Config.Preservation*s.VitalsSelf +
 		b.Config.Support*s.VitalsFriendly +
 		-b.Config.Aggression*s.VitalsHostile +
-		b.Config.Restlessness*s.MovementSelf +
+		s.MovementSelf +
 		b.Config.Randomness*s.Random
 }
 

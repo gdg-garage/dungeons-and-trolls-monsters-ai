@@ -40,7 +40,7 @@ func (b *Bot) scoreVitalsFor(target *MapObject, skillAttributes *swagger.Dungeon
 	targetMaxAttrs := target.GetMaxAttributes()
 	skillAttributes = fillSkillAttributes(*skillAttributes)
 
-	b.Logger.Infow("Debug scoreVitalsFor",
+	b.Logger.Debugw("Debug scoreVitalsFor",
 		"extraSign", extraSign,
 		"skillAttributes", skillAttributes,
 		"extraAttributes", extraAttributes,
@@ -139,7 +139,12 @@ func (b *Bot) scoreVitalsFunc(lifePercentage, staminaPercentage, manaPercentage 
 	// 100: {0, 0.519574, 0.659684, 0.744073, 0.804653, 0.851944, 0.89074, 0.923633, 0.952185, 0.977409, 1}
 	f := func(x float32, curveAggression float32) float32 {
 		x = cleanUp(x)
-		return float32(math.Log(float64((x*curveAggression + 1))) / math.Log(float64(curveAggression)+1))
+		res := float32(math.Log(float64((x*curveAggression + 1))) / math.Log(float64(curveAggression)+1))
+		if res == 0 {
+			// Killing blow etc. should always have high score
+			res = -0.5
+		}
+		return res
 	}
 	return 7*f(lifePercentage, 75) + 1.5*f(staminaPercentage, 25) + 1*f(manaPercentage, 10)
 }

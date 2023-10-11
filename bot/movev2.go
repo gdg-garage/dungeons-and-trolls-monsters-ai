@@ -1,6 +1,9 @@
 package bot
 
 import (
+	"math"
+	"math/rand"
+
 	swagger "github.com/gdg-garage/dungeons-and-trolls-go-client"
 )
 
@@ -52,6 +55,10 @@ func (b *Bot) getEmptyPositionsAsTargetsFromPosition(position swagger.Dungeonsan
 			if !b.isInBounds(b.Details.Level, pos) || manhattanDistance(pos, position) > dist {
 				continue
 			}
+			if pos == *b.Details.Position {
+				// Skip current position
+				continue
+			}
 			tileInfo, found := b.BotState.MapExtended[pos]
 			if found && (!tileInfo.mapObjects.IsFree || len(tileInfo.mapObjects.Monsters) > 0 || len(tileInfo.mapObjects.Players) > 0) {
 				// Skip non-free tiles or tiles with monsters or players
@@ -61,4 +68,39 @@ func (b *Bot) getEmptyPositionsAsTargetsFromPosition(position swagger.Dungeonsan
 		}
 	}
 	return targets
+}
+
+func (b *Bot) stretchMovePosition(position swagger.DungeonsandtrollsPosition) swagger.DungeonsandtrollsPosition {
+	x := position.PositionX - b.Details.Position.PositionX
+	y := position.PositionY - b.Details.Position.PositionY
+	x = b.Details.Position.PositionX + x*6 + rand.Int31n(4) - rand.Int31n(4)
+	y = b.Details.Position.PositionY + y*6 + rand.Int31n(4) - rand.Int31n(4)
+
+	dist := int32(3)
+	xStart := x - dist
+	yStart := y - dist
+	xEnd := x + dist
+	yEnd := y + dist
+
+	bestPosition := swagger.DungeonsandtrollsPosition{}
+	var bestDistance float32
+	bestDistance = math.MaxFloat32
+	for y := yStart; y < yEnd; y++ {
+		for x := xStart; x < xEnd; x++ {
+			pos := makePosition(x, y)
+			distanceToTarget := manhattanDistance(pos, position)
+			if !b.isInBounds(b.Details.Level, pos) || distanceToTarget > dist {
+				continue
+			}
+			tileInfo, found := b.BotState.MapExtended[pos]
+			if found && tileInfo.mapObjects.IsFree {
+				distance := float32(int(distanceToTarget)+tileInfo.distance) + rand.Float32()/100
+				if distance < bestDistance {
+					bestDistance = distance
+					bestPosition = pos
+				}
+			}
+		}
+	}
+	return bestPosition
 }

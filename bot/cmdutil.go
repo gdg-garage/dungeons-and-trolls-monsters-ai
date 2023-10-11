@@ -17,7 +17,7 @@ func (b *Bot) MoveXY(x, y int32) *swagger.DungeonsandtrollsCommandsBatch {
 
 func (b *Bot) Move(position swagger.DungeonsandtrollsPosition) *swagger.DungeonsandtrollsCommandsBatch {
 	b.BotState.State = "move"
-	b.BotState.TargetPosition = position
+	b.BotState.TargetPosition = &position
 	return &swagger.DungeonsandtrollsCommandsBatch{
 		Move: &position,
 	}

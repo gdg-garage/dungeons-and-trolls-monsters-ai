@@ -13,8 +13,9 @@ type BotState struct {
 	Self        MapObject
 	Yells       []string
 
-	State          string
-	TargetPosition swagger.DungeonsandtrollsPosition
+	State                 string
+	TargetPosition        *swagger.DungeonsandtrollsPosition
+	TargetPositionTimeout int
 	// TargetObject   swagger.DungeonsandtrollsMapObjects
 	// Target         swagger.DungeonsandtrollsMonster
 }
@@ -49,7 +50,8 @@ func (b *Bot) Run() *swagger.DungeonsandtrollsCommandsBatch {
 
 	if monster.Algorithm == "none" {
 		b.Logger.Warnw("Skipping monster with algorithm 'none'")
-		return b.Yell("I'm a chest ... I think")
+		b.addYell("I'm a chest ... I think")
+		return nil
 	}
 	if monster.Attributes.Life <= 0 {
 		b.Logger.Warnw("Skipping DEAD monster")
@@ -66,6 +68,11 @@ func (b *Bot) Run() *swagger.DungeonsandtrollsCommandsBatch {
 	// calculate distance and line of sight
 	b.BotState.MapExtended = b.calculateDistanceAndLineOfSight(level, *position)
 	b.BotState.Objects = b.getMapObjectsByCategoryForLevel(level)
+
+	b.BotState.TargetPositionTimeout -= 1
+	if b.BotState.TargetPositionTimeout <= 0 {
+		b.BotState.TargetPosition = nil
+	}
 
 	// One shot skill eval
 	return b.bestSkill()
