@@ -15,7 +15,7 @@ func NewConfig(algorithm string) Config {
 		Preservation: 2,
 		Support:      1,
 
-		Restlessness: 8,
+		Restlessness: 5,
 		Randomness:   0.03,
 	}
 }

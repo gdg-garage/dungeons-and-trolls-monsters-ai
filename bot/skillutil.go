@@ -119,10 +119,6 @@ func areAttributeRequirementMet(myAttrs swagger.DungeonsandtrollsAttributes, att
 }
 
 func (b *Bot) useSkill(skill swagger.DungeonsandtrollsSkill, target MapObject) *swagger.DungeonsandtrollsCommandsBatch {
-	b.BotState.TargetPositionTimeout -= 1
-	if b.BotState.TargetPositionTimeout <= 0 {
-		b.BotState.TargetPosition = nil
-	}
 	b.Logger.Infow("Using skill",
 		"skillName", skill.Name,
 		"skill", skill,
@@ -132,12 +128,16 @@ func (b *Bot) useSkill(skill swagger.DungeonsandtrollsSkill, target MapObject) *
 	)
 	if isDefaultMoveSkill(skill) {
 		b.addFirstYell("Catch me :)")
-		stretchedPosition := b.stretchMovePosition(*target.GetPosition())
-		b.BotState.TargetPosition = &stretchedPosition
-		b.Logger.Infow("Calculated stretched position",
-			"movePosition", target.MapObjects.Position,
-			"stretchedPosition", stretchedPosition,
-		)
+		if b.BotState.TargetPosition == nil {
+			stretchedPosition := b.stretchMovePosition(*target.GetPosition())
+			b.BotState.TargetPosition = &stretchedPosition
+			b.BotState.TargetPositionTimeout = 6
+			b.Logger.Infow("Calculated stretched position",
+				"movePosition", target.MapObjects.Position,
+				"stretchedPosition", stretchedPosition,
+				"myPosition", b.Details.Position,
+			)
+		}
 		return &swagger.DungeonsandtrollsCommandsBatch{
 			Move: target.MapObjects.Position,
 		}

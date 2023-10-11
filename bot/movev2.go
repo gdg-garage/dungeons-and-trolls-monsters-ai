@@ -73,8 +73,9 @@ func (b *Bot) getEmptyPositionsAsTargetsFromPosition(position swagger.Dungeonsan
 func (b *Bot) stretchMovePosition(position swagger.DungeonsandtrollsPosition) swagger.DungeonsandtrollsPosition {
 	x := position.PositionX - b.Details.Position.PositionX
 	y := position.PositionY - b.Details.Position.PositionY
-	x = b.Details.Position.PositionX + x*6 + rand.Int31n(4) - rand.Int31n(4)
-	y = b.Details.Position.PositionY + y*6 + rand.Int31n(4) - rand.Int31n(4)
+	x = b.Details.Position.PositionX + x*6 + rand.Int31n(3) - rand.Int31n(3)
+	y = b.Details.Position.PositionY + y*6 + rand.Int31n(3) - rand.Int31n(3)
+	candidatePosition := makePosition(x, y)
 
 	dist := int32(3)
 	xStart := x - dist
@@ -88,13 +89,13 @@ func (b *Bot) stretchMovePosition(position swagger.DungeonsandtrollsPosition) sw
 	for y := yStart; y < yEnd; y++ {
 		for x := xStart; x < xEnd; x++ {
 			pos := makePosition(x, y)
-			distanceToTarget := manhattanDistance(pos, position)
-			if !b.isInBounds(b.Details.Level, pos) || distanceToTarget > dist {
+			distanceToCandidate := manhattanDistance(pos, candidatePosition)
+			if !b.isInBounds(b.Details.Level, pos) || distanceToCandidate > dist {
 				continue
 			}
 			tileInfo, found := b.BotState.MapExtended[pos]
 			if found && tileInfo.mapObjects.IsFree {
-				distance := float32(int(distanceToTarget)+tileInfo.distance) + rand.Float32()/100
+				distance := float32(int(distanceToCandidate)+tileInfo.distance) + rand.Float32()/100
 				if distance < bestDistance {
 					bestDistance = distance
 					bestPosition = pos
