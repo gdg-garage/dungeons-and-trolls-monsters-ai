@@ -12,6 +12,14 @@ type SkillResult struct {
 	VitalsFriendly float32
 	VitalsSelf     float32
 
+	BuffsHostile  float32
+	BuffsFriendly float32
+	BuffsSelf     float32
+
+	ResistsHostile  float32
+	ResistsFriendly float32
+	ResistsSelf     float32
+
 	// MovementHostile float32
 	MovementSelf float32
 	// MovementFriendly float32
@@ -23,6 +31,9 @@ func (sr *SkillResult) Add(other SkillResult) *SkillResult {
 	sr.VitalsHostile += other.VitalsHostile
 	sr.VitalsFriendly += other.VitalsFriendly
 	sr.VitalsSelf += other.VitalsSelf
+	sr.BuffsHostile += other.BuffsHostile
+	sr.BuffsFriendly += other.BuffsFriendly
+	sr.BuffsSelf += other.BuffsSelf
 	sr.MovementSelf += other.MovementSelf
 	sr.Random += other.Random
 	return sr
@@ -60,14 +71,14 @@ func (b *Bot) evaluateSkill(skill swagger.DungeonsandtrollsSkill, target MapObje
 		return empty
 	}
 
-	casterPostion := b.Details.Position
+	casterPosition := b.Details.Position
 	targetPosition := b.getSkillTargetPosition(&skill, &target)
 	b.Logger.Debug("Checking distance",
-		"casterPostion", casterPostion,
+		"casterPosition", casterPosition,
 		"targetPosition", targetPosition,
-		"manhattanDistance", manhattanDistance(*casterPostion, *targetPosition),
+		"manhattanDistance", manhattanDistance(*casterPosition, *targetPosition),
 	)
-	if manhattanDistance(*casterPostion, *targetPosition) > int32(b.calculateAttributesValue(*skill.Range_)) {
+	if manhattanDistance(*casterPosition, *targetPosition) > int32(b.calculateAttributesValue(*skill.Range_)) {
 		b.Logger.Infow("Target out of skill range")
 		return empty
 	}
@@ -80,7 +91,8 @@ func (b *Bot) evaluateSkill(skill swagger.DungeonsandtrollsSkill, target MapObje
 	radius := int32(b.calculateAttributesValue(*skill.Radius))
 
 	// Eval yourself
-	result := b.evalEffectFor(&b.BotState.Self, skill.CasterEffects, &skill)
+	b.Logger.Infow("Eval for caster")
+	result := b.evalEffectFor(&b.BotState.Self, skill.CasterEffects, &skill, false)
 	result.Random = rand.Float32()
 	// Eval movement for self
 	if skill.CasterEffects.Flags.Movement {
@@ -88,10 +100,10 @@ func (b *Bot) evaluateSkill(skill swagger.DungeonsandtrollsSkill, target MapObje
 	}
 	// Eval ground effect around caster
 	if skill.CasterEffects.Flags.GroundEffect {
-		targets := b.findTargetsInRadius(*casterPostion, radius)
+		targets := b.findTargetsInRadius(*casterPosition, radius)
 		for i := range targets {
 			target_ := targets[i]
-			result.Add(b.evalEffectFor(&target_, skill.TargetEffects, &skill))
+			result.Add(b.evalEffectFor(&target_, skill.TargetEffects, &skill, true))
 		}
 		return result
 	}
@@ -99,78 +111,107 @@ func (b *Bot) evaluateSkill(skill swagger.DungeonsandtrollsSkill, target MapObje
 	if radius <= 0 {
 		// Eval target if character
 		if *skill.Target == swagger.CHARACTER_SkillTarget {
-			result.Add(b.evalEffectFor(&target, skill.TargetEffects, &skill))
+			b.Logger.Infow("Eval for character target",
+				"target", target.GetName(),
+				"resultBefore", result,
+			)
+			result.Add(b.evalEffectFor(&target, skill.TargetEffects, &skill, true))
+			b.Logger.Infow("AFTER Eval for character target",
+				"target", target.GetName(),
+				"resultAfter", result,
+			)
 		} else if *skill.Target == swagger.POSITION_SkillTarget {
 			targets := b.findTargetsInRadius(*targetPosition, radius)
+			b.Logger.Infow("Eval for position target",
+				"numTargets", len(targets),
+			)
 			for i := range targets {
 				target_ := targets[i]
-				if target_.GetId() == b.BotState.Self.GetId() || target_.GetId() == target.GetId() {
-					// Exclude caster and target
+				if target_.GetId() == b.BotState.Self.GetId() {
+					b.Logger.Infow("No eval for self")
 					continue
 				}
-				result.Add(b.evalEffectFor(&target_, skill.TargetEffects, &skill))
+				result.Add(b.evalEffectFor(&target_, skill.TargetEffects, &skill, true))
 			}
+		} else {
+			b.Logger.Infow("No Eval for none target")
 		}
 		return result
 	}
 	// Eval AoE / ground effect around target
 	targets := b.findTargetsInRadius(*targetPosition, radius)
 	for i := range targets {
+		b.Logger.Infow("Eval for AoE / ground effect",
+			"numTargets", len(targets),
+		)
 		target_ := targets[i]
-		if target_.GetId() == b.BotState.Self.GetId() {
-			// Exclude caster and target
+		if *skill.Target == swagger.NONE_SkillTarget && target_.GetId() == b.BotState.Self.GetId() {
 			continue
 		}
-		result.Add(b.evalEffectFor(&target_, skill.TargetEffects, &skill))
+		result.Add(b.evalEffectFor(&target_, skill.TargetEffects, &skill, true))
 	}
 	return result
 }
 
-func (b *Bot) evalEffectFor(target *MapObject, effect *swagger.DungeonsandtrollsSkillEffect, skill *swagger.DungeonsandtrollsSkill) SkillResult {
-	if effect == nil || effect.Attributes == nil || b.IsNeutral(*target) {
+func (b *Bot) evalEffectFor(target *MapObject, effect *swagger.DungeonsandtrollsSkillEffect, skill *swagger.DungeonsandtrollsSkill, withDamage bool) SkillResult {
+	if b.IsNeutral(*target) {
 		return SkillResult{}
 	}
-	var vitalsScore float32
-	if target.GetId() == b.BotState.Self.GetId() {
-		vitalsScore = b.scoreVitalsWithCost(effect.Attributes, skill)
+	if effect == nil {
+		effect = &swagger.DungeonsandtrollsSkillEffect{}
+	}
+	if effect.Attributes == nil {
+		effect.Attributes = &swagger.DungeonsandtrollsSkillAttributes{}
+	}
+	var vitalsScore, buffsScore, resistsScore float32
+	if withDamage {
+		vitalsScore, buffsScore, resistsScore = b.scoreVitalsWithDamage(target, effect.Attributes, skill)
 	} else {
-		vitalsScore = b.scoreVitalsWithDamage(target, effect.Attributes, skill)
+		// withCost
+		vitalsScore, buffsScore, resistsScore = b.scoreVitalsWithCost(effect.Attributes, skill)
 	}
-	duration := float32(b.calculateAttributesValue(*skill.Duration))
-	if duration == 0 {
-		duration = 1
-	}
-	vitalsScore *= duration
-	if effect.Flags.Stun {
-		if b.IsHostile(*target) {
-			if !b.GetStunInfo(*target).IsImmune {
-				vitalsScore -= 0.2
-			}
+	if effect.Flags.Stun && !b.GetStunInfo(*target).IsImmune {
+		if target.GetId() == b.Details.Id {
+			vitalsScore -= 0.4
+		} else if b.IsHostile(*target) {
+			vitalsScore -= 0.3
 		} else {
-			if !b.Details.Monster.Stun.IsImmune {
-				vitalsScore -= 0.4
-			}
+			vitalsScore -= 0.2
 		}
 	}
 	if effect.Flags.Knockback {
 		vitalsScore -= 0.1
+	}
+	vitalsSummons := float32(0)
+	if effect.Summons != nil && len(effect.Summons) > 0 {
+		vitalsSummons += 0.35
 	}
 	// XXX: Maybe make bigger targets worth more
 	//      Not relevant because players are on the same level
 	// vitalsScore *= target.GetMaxAttributes().Life
 	if target.GetId() == b.BotState.Self.GetId() {
 		return SkillResult{
-			VitalsSelf: vitalsScore,
+			VitalsSelf:  vitalsScore,
+			BuffsSelf:   buffsScore,
+			ResistsSelf: resistsScore,
+
+			VitalsFriendly: vitalsSummons,
 		}
 	}
 	if b.IsHostile(*target) {
 		return SkillResult{
-			VitalsHostile: vitalsScore,
+			VitalsHostile:  vitalsScore,
+			BuffsHostile:   buffsScore,
+			ResistsHostile: resistsScore,
+
+			VitalsFriendly: vitalsSummons,
 		}
 	}
 	// Neutral effects are included in friendly for simplicity
 	return SkillResult{
-		VitalsFriendly: vitalsScore,
+		VitalsFriendly:  vitalsScore + vitalsSummons,
+		BuffsFriendly:   buffsScore,
+		ResistsFriendly: resistsScore,
 	}
 }
 
@@ -181,8 +222,8 @@ func (b *Bot) findTargetsInRange(position swagger.DungeonsandtrollsPosition, dis
 	yEnd := position.PositionY + dist
 
 	targets := []MapObject{}
-	for y := yStart; y < yEnd; y++ {
-		for x := xStart; x < xEnd; x++ {
+	for y := yStart; y <= yEnd; y++ {
+		for x := xStart; x <= xEnd; x++ {
 			pos := makePosition(x, y)
 			if !b.isInBounds(b.Details.Level, pos) || manhattanDistance(pos, position) > dist {
 				continue
@@ -287,31 +328,31 @@ func (b *Bot) scoreMovement(position *swagger.DungeonsandtrollsPosition) float32
 	if distances.NumCloseFriendly > 10 {
 		distances.NumCloseFriendly = 10
 	}
-	scoreClosestHostile := 10 / float32(distances.DistanceToClosestHostile+9)
+	scoreClosestHostile := 10 / float32(distances.DistanceToClosestHostile+10)
 	if distances.DistanceToClosestHostile < 2 {
 		scoreClosestHostile -= 0.08
 		if distances.DistanceToClosestHostile == 0 {
 			scoreClosestHostile -= 0.06
 		}
 	}
-	scoreClosestFriendly := 10 / float32(distances.DistanceToClosestFriendly+9)
+	scoreClosestFriendly := 10 / float32(distances.DistanceToClosestFriendly+10)
 	if distances.DistanceToClosestFriendly < 2 {
 		scoreClosestFriendly -= 0.21
 		if distances.DistanceToClosestFriendly == 0 {
-			scoreClosestFriendly -= 0.21
+			scoreClosestFriendly -= 0.31
 		}
 	}
-	scoreTargetPosition := 10 / float32(distances.DistanceToTargetPosition+9)
+	scoreTargetPosition := 20 / float32(distances.DistanceToTargetPosition+20)
 
 	scoreDistToSelf := float32(distances.DistanceToSelf) / 10
 	scoreNumHostiles := float32(distances.NumCloseHostiles) / 10
-	scoreNumFriendly := float32(distances.NumCloseFriendly) / 10
+	scoreNumFriendly := float32(distances.NumCloseFriendly) / 20
 
 	scorePosition := float32(0)
 	tileInfo, found := b.BotState.MapExtended[*position]
 	if found {
 		if tileInfo.mapObjects.IsStairs || tileInfo.mapObjects.IsSpawn {
-			scorePosition -= 0.5
+			scorePosition -= 0.7
 		}
 		for _, monster := range tileInfo.mapObjects.Monsters {
 			if monster.Id != b.Details.Monster.Id {
@@ -326,7 +367,7 @@ func (b *Bot) scoreMovement(position *swagger.DungeonsandtrollsPosition) float32
 	result := b.Config.Restlessness*scoreDistToSelf +
 		scoreClosestHostile*6 +
 		scoreClosestFriendly*2 +
-		scoreTargetPosition*6 +
+		scoreTargetPosition*20 +
 		vitalsCoef*scoreNumHostiles*2 +
 		scoreNumFriendly*1 +
 		scorePosition

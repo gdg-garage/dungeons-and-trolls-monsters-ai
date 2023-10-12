@@ -24,11 +24,11 @@ import (
 	Scalar float32 `json:"scalar,omitempty"`
 */
 
-func (b *Bot) calculateAttributesValue(attrs swagger.DungeonsandtrollsAttributes) int {
+func (b *Bot) calculateAttributesValue(attrs swagger.DungeonsandtrollsAttributes) float32 {
 	return calculateAttributesValue(*b.Details.Monster.Attributes, attrs)
 }
 
-func calculateAttributesValue(myAttrs swagger.DungeonsandtrollsAttributes, attrs swagger.DungeonsandtrollsAttributes) int {
+func calculateAttributesValue(myAttrs swagger.DungeonsandtrollsAttributes, attrs swagger.DungeonsandtrollsAttributes) float32 {
 	var value float32
 	value += myAttrs.Strength * attrs.Strength
 	value += myAttrs.Dexterity * attrs.Dexterity
@@ -44,7 +44,7 @@ func calculateAttributesValue(myAttrs swagger.DungeonsandtrollsAttributes, attrs
 	value += myAttrs.Stamina * attrs.Stamina
 	value += myAttrs.Mana * attrs.Mana
 	value += attrs.Constant
-	return int(value)
+	return value
 }
 
 func (b *Bot) areAttributeRequirementMet(attrs swagger.DungeonsandtrollsAttributes) bool {
@@ -126,8 +126,7 @@ func (b *Bot) useSkill(skill swagger.DungeonsandtrollsSkill, target MapObject) *
 		"target", target.GetName(),
 		"targetPosition", target.GetPosition(),
 	)
-	if isDefaultMoveSkill(skill) {
-		b.addFirstYell("Catch me :)")
+	if skill.CasterEffects.Flags.Movement {
 		if b.BotState.TargetPosition == nil {
 			stretchedPosition := b.stretchMovePosition(*target.GetPosition())
 			b.BotState.TargetPosition = &stretchedPosition
@@ -138,6 +137,9 @@ func (b *Bot) useSkill(skill swagger.DungeonsandtrollsSkill, target MapObject) *
 				"myPosition", b.Details.Position,
 			)
 		}
+	}
+	if isDefaultMoveSkill(skill) {
+		b.addFirstYell("Catch me :)")
 		return &swagger.DungeonsandtrollsCommandsBatch{
 			Move: target.MapObjects.Position,
 		}

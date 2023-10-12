@@ -1,6 +1,8 @@
 package bot
 
-import swagger "github.com/gdg-garage/dungeons-and-trolls-go-client"
+import (
+	swagger "github.com/gdg-garage/dungeons-and-trolls-go-client"
+)
 
 func (b *Bot) bestSkill() *swagger.DungeonsandtrollsCommandsBatch {
 	allSkills := b.filterActiveSkills(getAllSkills(b.Details.Monster.EquippedItems))
@@ -30,7 +32,7 @@ func (b *Bot) bestSkill() *swagger.DungeonsandtrollsCommandsBatch {
 	maxRange := 0
 	for i := range oocSkills {
 		skill := oocSkills[i]
-		range_ := b.calculateAttributesValue(*skill.Range_)
+		range_ := int(b.calculateAttributesValue(*skill.Range_))
 		skillsByRange[range_] = append(skillsByRange[range_], skill)
 		if range_ > maxRange {
 			maxRange = range_
@@ -171,10 +173,17 @@ func (b *Bot) bestSkill() *swagger.DungeonsandtrollsCommandsBatch {
 }
 
 func (b *Bot) getCombinedVitalsScore(s SkillResult) float32 {
+	buffCoef := float32(1)
 	// XXX: Coefficients here can be tweaked for aggression vs. survival preference
 	return b.Config.Preservation*s.VitalsSelf +
 		b.Config.Support*s.VitalsFriendly +
 		-b.Config.Aggression*s.VitalsHostile +
+		buffCoef*s.BuffsSelf +
+		buffCoef*s.BuffsFriendly +
+		buffCoef*s.BuffsHostile +
+		buffCoef*s.ResistsSelf +
+		buffCoef*s.ResistsFriendly +
+		buffCoef*s.ResistsHostile +
 		s.MovementSelf +
 		b.Config.Randomness*s.Random
 }

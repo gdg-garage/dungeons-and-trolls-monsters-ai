@@ -2,12 +2,48 @@ package bot
 
 import (
 	"math"
+	"math/rand"
 
 	swagger "github.com/gdg-garage/dungeons-and-trolls-go-client"
 )
 
-func (b *Bot) scoreVitalsWithDamage(target *MapObject, skillAttributes *swagger.DungeonsandtrollsSkillAttributes, skill *swagger.DungeonsandtrollsSkill) float32 {
-	damage := b.calculateAttributesValue(*skill.DamageAmount)
+func (b *Bot) getResistForDamageType(target *MapObject, damageType swagger.DungeonsandtrollsDamageType) float32 {
+	attrs := target.GetAttributes()
+	switch damageType {
+	case swagger.SLASH_DungeonsandtrollsDamageType:
+		return attrs.SlashResist
+	case swagger.PIERCE_DungeonsandtrollsDamageType:
+		return attrs.PierceResist
+	case swagger.FIRE_DungeonsandtrollsDamageType:
+		return attrs.FireResist
+	case swagger.POISON_DungeonsandtrollsDamageType:
+		return attrs.PoisonResist
+	case swagger.ELECTRIC_DungeonsandtrollsDamageType:
+		return attrs.ElectricResist
+	case swagger.NONE_DungeonsandtrollsDamageType:
+		return 0
+	}
+	b.Logger.Error("FATAL: getResistForDamageType(): Unknown damage type!",
+		"damageType", damageType,
+	)
+	return 0
+}
+
+func (b *Bot) calculateDamage(target *MapObject, skill *swagger.DungeonsandtrollsSkill) float32 {
+	power := b.calculateAttributesValue(*skill.DamageAmount)
+	resist := b.getResistForDamageType(target, *skill.DamageType)
+	damage := float32(float64(power*10) / (float64(10) + math.Max(float64(resist), -5)))
+	b.Logger.Infow("Damage calculated",
+		"targetName", target.GetName(),
+		"power", power,
+		"resist", resist,
+		"damage", damage,
+	)
+	return damage
+}
+
+func (b *Bot) scoreVitalsWithDamage(target *MapObject, skillAttributes *swagger.DungeonsandtrollsSkillAttributes, skill *swagger.DungeonsandtrollsSkill) (float32, float32, float32) {
+	damage := b.calculateDamage(target, skill) * (1 + rand.Float32()/10)
 	damageAttrs := &swagger.DungeonsandtrollsAttributes{
 		Life:    float32(damage),
 		Stamina: 0,
@@ -16,7 +52,7 @@ func (b *Bot) scoreVitalsWithDamage(target *MapObject, skillAttributes *swagger.
 	return b.scoreVitalsFor(target, skillAttributes, damageAttrs, -1, skill)
 }
 
-func (b *Bot) scoreVitalsWithCost(skillAttributes *swagger.DungeonsandtrollsSkillAttributes, skill *swagger.DungeonsandtrollsSkill) float32 {
+func (b *Bot) scoreVitalsWithCost(skillAttributes *swagger.DungeonsandtrollsSkillAttributes, skill *swagger.DungeonsandtrollsSkill) (float32, float32, float32) {
 	// Adjust cost by duration
 	// It will be multiplied by duration again
 	duration := float32(b.calculateAttributesValue(*skill.Duration))
@@ -35,12 +71,12 @@ func (b *Bot) scoreVitalsWithCost(skillAttributes *swagger.DungeonsandtrollsSkil
 // Tells you how much the skill will improve your resources (life, stamina, mana)
 // Can be used for both casterEffect and targetEffect skills
 // XXX: Add other attributes after you test, debug, and balance the current version
-func (b *Bot) scoreVitalsFor(target *MapObject, skillAttributes *swagger.DungeonsandtrollsSkillAttributes, extraAttributes *swagger.DungeonsandtrollsAttributes, extraSign float32, skill *swagger.DungeonsandtrollsSkill) float32 {
+func (b *Bot) scoreVitalsFor(target *MapObject, skillAttributes *swagger.DungeonsandtrollsSkillAttributes, extraAttributes *swagger.DungeonsandtrollsAttributes, extraSign float32, skill *swagger.DungeonsandtrollsSkill) (float32, float32, float32) {
 	targetAttrs := target.GetAttributes()
 	targetMaxAttrs := target.GetMaxAttributes()
 	skillAttributes = fillSkillAttributes(*skillAttributes)
 
-	b.Logger.Debugw("Debug scoreVitalsFor",
+	b.Logger.Infow("Debug scoreVitalsFor",
 		"extraSign", extraSign,
 		"skillAttributes", skillAttributes,
 		"extraAttributes", extraAttributes,
@@ -62,28 +98,12 @@ func (b *Bot) scoreVitalsFor(target *MapObject, skillAttributes *swagger.Dungeon
 	skillStaminaGain *= duration
 	skillManaGain *= duration
 
-	lifePercentage := targetAttrs.Life / targetMaxAttrs.Life
-	staminaPercentage := targetAttrs.Stamina / targetMaxAttrs.Stamina
-	if math.IsNaN(float64(staminaPercentage)) {
-		staminaPercentage = 0
-	}
-	manaPercentage := targetAttrs.Mana / targetMaxAttrs.Mana
-	if math.IsNaN(float64(manaPercentage)) {
-		manaPercentage = 0
-	}
+	lifePercentage, lifePercentageAfter := b.calculateAttributePercentages(targetAttrs.Life, targetMaxAttrs.Life, skillLifeGain)
+	staminaPercentage, staminaPercentageAfter := b.calculateAttributePercentages(targetAttrs.Stamina, targetMaxAttrs.Stamina, skillStaminaGain)
+	manaPercentage, manaPercentageAfter := b.calculateAttributePercentages(targetAttrs.Mana, targetMaxAttrs.Mana, skillManaGain)
+
 	score := b.scoreVitalsFunc(lifePercentage, staminaPercentage, manaPercentage)
-
-	lifePercentageAfter := (targetAttrs.Life + skillLifeGain) / targetMaxAttrs.Life
-	staminaPercentageAfter := (targetAttrs.Stamina + skillStaminaGain) / targetMaxAttrs.Stamina
-	if math.IsNaN(float64(staminaPercentageAfter)) {
-		staminaPercentageAfter = 0
-	}
-	manaPercentageAfter := (targetAttrs.Mana + skillManaGain) / targetMaxAttrs.Mana
-	if math.IsNaN(float64(manaPercentageAfter)) {
-		manaPercentageAfter = 0
-	}
 	scoreAfter := b.scoreVitalsFunc(lifePercentageAfter, staminaPercentageAfter, manaPercentageAfter)
-
 	scoreDiff := scoreAfter - score
 
 	b.Logger.Infow("Skill vitals score",
@@ -110,10 +130,11 @@ func (b *Bot) scoreVitalsFor(target *MapObject, skillAttributes *swagger.Dungeon
 		"vitalsScoreDiff", scoreDiff,
 		"duration", duration,
 	)
-	return scoreDiff
+	scoreBuffsDiff, scoreResistsDiff := b.scoreBuffs(target, skillAttributes, skill)
+	return scoreDiff, scoreBuffsDiff, scoreResistsDiff
 }
 
-func (b *Bot) scoreVitalsFunc(lifePercentage, staminaPercentage, manaPercentage float32) float32 {
+func (b *Bot) scorePercentageOnACurve(percentage, curve, killingBlowBonus float32) float32 {
 	cleanUp := func(x float32) float32 {
 		if math.IsNaN(float64(x)) {
 			x = 0
@@ -142,9 +163,74 @@ func (b *Bot) scoreVitalsFunc(lifePercentage, staminaPercentage, manaPercentage 
 		res := float32(math.Log(float64((x*curveAggression + 1))) / math.Log(float64(curveAggression)+1))
 		if res == 0 {
 			// Killing blow etc. should always have high score
-			res = -0.5
+			res = -killingBlowBonus
 		}
 		return res
 	}
-	return 7*f(lifePercentage, 75) + 1.5*f(staminaPercentage, 25) + 1*f(manaPercentage, 10)
+	return f(percentage, curve)
+}
+
+func (b *Bot) scoreVitalsFunc(lifePercentage, staminaPercentage, manaPercentage float32) float32 {
+	return 7.5*b.scorePercentageOnACurve(lifePercentage, 75, 0.5) +
+		1.75*b.scorePercentageOnACurve(staminaPercentage, 25, 0.2) +
+		1.2*b.scorePercentageOnACurve(manaPercentage, 10, 0.2)
+}
+
+func (b *Bot) scoreBuffsFunc(strPercentage, dexPercentage, intPercentage, willPercentage, consPercentage float32) float32 {
+	f := func(percentage float32) float32 {
+		return b.scorePercentageOnACurve(percentage, 25, 0.2)
+	}
+	return 4*f(strPercentage) + 2*f(dexPercentage) + 2*f(intPercentage) + 1*f(willPercentage) + 1*f(consPercentage)
+}
+
+func (b *Bot) scoreResistFunc(slashPercentage, piercePercentage, firePercentage, poisonPercentage, electricPercentage float32) float32 {
+	f := func(percentage float32) float32 {
+		return b.scorePercentageOnACurve(percentage, 25, 0.2)
+	}
+	return 2.5*f(slashPercentage) + 4*f(piercePercentage) + 1.5*f(firePercentage) + f(poisonPercentage) + f(electricPercentage)
+}
+
+func (b *Bot) calculateAttributePercentages(value, maxValue, gain float32) (float32, float32) {
+	percentage := value / maxValue
+	if math.IsNaN(float64(percentage)) {
+		percentage = 0
+	}
+	percentageAfter := (value + gain) / maxValue
+	if math.IsNaN(float64(percentageAfter)) {
+		percentageAfter = 0
+	}
+	return percentage, percentageAfter
+}
+
+func (b *Bot) scoreBuffs(target *MapObject, skillAttributes *swagger.DungeonsandtrollsSkillAttributes, skill *swagger.DungeonsandtrollsSkill) (float32, float32) {
+	strengthGain := b.calculateAttributesValue(*skillAttributes.Strength)
+	dexterityGain := b.calculateAttributesValue(*skillAttributes.Dexterity)
+	intelligenceGain := b.calculateAttributesValue(*skillAttributes.Intelligence)
+	willpowerGain := b.calculateAttributesValue(*skillAttributes.Willpower)
+	constitutionGain := b.calculateAttributesValue(*skillAttributes.Constitution)
+
+	slashResistGain := b.calculateAttributesValue(*skillAttributes.SlashResist)
+	pierceResistGain := b.calculateAttributesValue(*skillAttributes.PierceResist)
+	fireResistGain := b.calculateAttributesValue(*skillAttributes.FireResist)
+	poisonResistGain := b.calculateAttributesValue(*skillAttributes.PoisonResist)
+	electricResistGain := b.calculateAttributesValue(*skillAttributes.ElectricResist)
+
+	strengthPercentage, strengthPercentageAfter := b.calculateAttributePercentages(target.GetAttributes().Strength, target.GetMaxAttributes().Strength, strengthGain)
+	dexterityPercentage, dexterityPercentageAfter := b.calculateAttributePercentages(target.GetAttributes().Dexterity, target.GetMaxAttributes().Dexterity, dexterityGain)
+	intelligencePercentage, intelligencePercentageAfter := b.calculateAttributePercentages(target.GetAttributes().Intelligence, target.GetMaxAttributes().Intelligence, intelligenceGain)
+	willpowerPercentage, willpowerPercentageAfter := b.calculateAttributePercentages(target.GetAttributes().Willpower, target.GetMaxAttributes().Willpower, willpowerGain)
+	constitutionPercentage, constitutionPercentageAfter := b.calculateAttributePercentages(target.GetAttributes().Constitution, target.GetMaxAttributes().Constitution, constitutionGain)
+
+	slashResistPercentage, slashResistPercentageAfter := b.calculateAttributePercentages(target.GetAttributes().SlashResist, target.GetMaxAttributes().SlashResist, slashResistGain)
+	pierceResistPercentage, pierceResistPercentageAfter := b.calculateAttributePercentages(target.GetAttributes().PierceResist, target.GetMaxAttributes().PierceResist, pierceResistGain)
+	fireResistPercentage, fireResistPercentageAfter := b.calculateAttributePercentages(target.GetAttributes().FireResist, target.GetMaxAttributes().FireResist, fireResistGain)
+	poisonResistPercentage, poisonResistPercentageAfter := b.calculateAttributePercentages(target.GetAttributes().PoisonResist, target.GetMaxAttributes().PoisonResist, poisonResistGain)
+	electricResistPercentage, electricResistPercentageAfter := b.calculateAttributePercentages(target.GetAttributes().ElectricResist, target.GetMaxAttributes().ElectricResist, electricResistGain)
+
+	scoreBuffs := b.scoreBuffsFunc(strengthPercentage, dexterityPercentage, intelligencePercentage, willpowerPercentage, constitutionPercentage)
+	scoreBuffsAfter := b.scoreBuffsFunc(strengthPercentageAfter, dexterityPercentageAfter, intelligencePercentageAfter, willpowerPercentageAfter, constitutionPercentageAfter)
+	scoreResists := b.scoreResistFunc(slashResistPercentage, pierceResistPercentage, fireResistPercentage, poisonResistPercentage, electricResistPercentage)
+	scoreResistsAfter := b.scoreResistFunc(slashResistPercentageAfter, pierceResistPercentageAfter, fireResistPercentageAfter, poisonResistPercentageAfter, electricResistPercentageAfter)
+
+	return scoreBuffsAfter - scoreBuffs, scoreResistsAfter - scoreResists
 }

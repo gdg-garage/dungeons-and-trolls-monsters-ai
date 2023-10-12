@@ -71,9 +71,13 @@ func (b *Bot) Run() *swagger.DungeonsandtrollsCommandsBatch {
 
 	b.BotState.TargetPositionTimeout -= 1
 	if b.BotState.TargetPositionTimeout <= 0 {
+		b.Logger.Infow("Resetting target position because timeout")
 		b.BotState.TargetPosition = nil
 	}
-
+	if b.BotState.TargetPosition != nil && *b.BotState.TargetPosition == *b.Details.Position {
+		b.Logger.Infow("Resetting target position because reached")
+		b.BotState.TargetPosition = nil
+	}
 	// One shot skill eval
 	return b.bestSkill()
 }
