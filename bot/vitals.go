@@ -2,7 +2,6 @@ package bot
 
 import (
 	"math"
-	"math/rand"
 
 	swagger "github.com/gdg-garage/dungeons-and-trolls-go-client"
 )
@@ -33,17 +32,19 @@ func (b *Bot) calculateDamage(target *MapObject, skill *swagger.Dungeonsandtroll
 	power := b.calculateAttributesValue(*skill.DamageAmount)
 	resist := b.getResistForDamageType(target, *skill.DamageType)
 	damage := float32(float64(power*10) / (float64(10) + math.Max(float64(resist), -5)))
+	damageFinal := randomizeScoreN(damage, 20)
 	b.Logger.Infow("Damage calculated",
 		"targetName", target.GetName(),
 		"power", power,
 		"resist", resist,
 		"damage", damage,
+		"damageRandomized", damageFinal,
 	)
-	return damage
+	return damageFinal
 }
 
 func (b *Bot) scoreVitalsWithDamage(target *MapObject, skillAttributes *swagger.DungeonsandtrollsSkillAttributes, skill *swagger.DungeonsandtrollsSkill) (float32, float32, float32) {
-	damage := b.calculateDamage(target, skill) * (1 + rand.Float32()/10)
+	damage := b.calculateDamage(target, skill)
 	damageAttrs := &swagger.DungeonsandtrollsAttributes{
 		Life:    float32(damage),
 		Stamina: 0,

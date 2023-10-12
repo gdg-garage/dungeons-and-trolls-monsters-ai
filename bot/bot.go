@@ -16,6 +16,8 @@ type BotState struct {
 	State                 string
 	TargetPosition        *swagger.DungeonsandtrollsPosition
 	TargetPositionTimeout int
+
+	DefaultMovePenalty int
 	// TargetObject   swagger.DungeonsandtrollsMapObjects
 	// Target         swagger.DungeonsandtrollsMonster
 }

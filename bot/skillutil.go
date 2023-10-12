@@ -137,6 +137,9 @@ func (b *Bot) useSkill(skill swagger.DungeonsandtrollsSkill, target MapObject) *
 				"myPosition", b.Details.Position,
 			)
 		}
+		b.BotState.DefaultMovePenalty += 1
+	} else {
+		b.BotState.DefaultMovePenalty = 0
 	}
 	if isDefaultMoveSkill(skill) {
 		b.addFirstYell("Catch me :)")

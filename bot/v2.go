@@ -1,6 +1,8 @@
 package bot
 
 import (
+	"math/rand"
+
 	swagger "github.com/gdg-garage/dungeons-and-trolls-go-client"
 )
 
@@ -114,6 +116,9 @@ func (b *Bot) bestSkill() *swagger.DungeonsandtrollsCommandsBatch {
 						continue
 					}
 					result := b.evaluateSkill(skill, target)
+					if result.VitalsHostile < 0 {
+						result.VitalsHostile -= 0.1
+					}
 					b.Logger.Infow("Skill + target evaluated",
 						"skillName", skill.Name,
 						"targetName", target.GetName(),
@@ -128,11 +133,20 @@ func (b *Bot) bestSkill() *swagger.DungeonsandtrollsCommandsBatch {
 						"resultsCombinedScore", b.getCombinedVitalsScore(result),
 					)
 					if b.isBetterThanSkillResult(result, bestResult) {
+						prevSkillName := "<no skill>"
+						if bestSkill != nil {
+							prevSkillName = bestSkill.Name
+						}
+						prevTargetName := "<no target>"
+						if bestTarget != nil {
+							prevTargetName = bestTarget.GetName()
+						}
 						b.Logger.Infow("New best skill + target combination.",
-							"skillName", skill.Name,
-							"targetName", target.GetName(),
 							"targetPosition", target.MapObjects.Position,
 							"myPosition", b.Details.Position,
+
+							"skillName", skill.Name,
+							"targetName", target.GetName(),
 							"result", result,
 							"result.VitalsSelf", result.VitalsSelf,
 							"result.VitalsFriendly", result.VitalsFriendly,
@@ -140,6 +154,16 @@ func (b *Bot) bestSkill() *swagger.DungeonsandtrollsCommandsBatch {
 							"result.MovementSelf", result.MovementSelf,
 							"result.Random", result.Random,
 							"resultCombinedScore", b.getCombinedVitalsScore(result),
+
+							"previousSkillName", prevSkillName,
+							"previousTargetName", prevTargetName,
+							"previousResult", bestResult,
+							"previousResult.VitalsSelf", bestResult.VitalsSelf,
+							"previousResult.VitalsFriendly", bestResult.VitalsFriendly,
+							"previousResult.VitalsHostile", bestResult.VitalsHostile,
+							"previousResult.MovementSelf", bestResult.MovementSelf,
+							"previousResult.Random", bestResult.Random,
+							"previousResultCombinedScore", b.getCombinedVitalsScore(bestResult),
 						)
 						bestResult = result
 						bestSkill = &skill
@@ -172,20 +196,23 @@ func (b *Bot) bestSkill() *swagger.DungeonsandtrollsCommandsBatch {
 	return b.useSkill(*bestSkill, *bestTarget)
 }
 
+// Adds up to 20% score
+func randomizeScore(score float32) float32 {
+	return randomizeScoreN(score, 20)
+}
+
+func randomizeScoreN(score, maxPercentIncrease float32) float32 {
+	return score * (1 + rand.Float32()/100*maxPercentIncrease)
+}
+
 func (b *Bot) getCombinedVitalsScore(s SkillResult) float32 {
 	buffCoef := float32(1)
 	// XXX: Coefficients here can be tweaked for aggression vs. survival preference
-	return b.Config.Preservation*s.VitalsSelf +
-		b.Config.Support*s.VitalsFriendly +
-		-b.Config.Aggression*s.VitalsHostile +
-		buffCoef*s.BuffsSelf +
-		buffCoef*s.BuffsFriendly +
-		buffCoef*s.BuffsHostile +
-		buffCoef*s.ResistsSelf +
-		buffCoef*s.ResistsFriendly +
-		buffCoef*s.ResistsHostile +
-		s.MovementSelf +
-		b.Config.Randomness*s.Random
+	baseScore := b.Config.Preservation*(s.VitalsSelf+buffCoef*s.BuffsSelf+buffCoef*s.ResistsSelf) +
+		b.Config.Support*(s.VitalsFriendly+buffCoef*s.BuffsFriendly+buffCoef*s.ResistsFriendly) +
+		-b.Config.Aggression*(s.VitalsHostile+buffCoef*s.BuffsHostile+buffCoef*s.ResistsHostile)
+
+	return randomizeScore(baseScore) + s.MovementSelf + b.Config.Randomness*s.Random
 }
 
 func (b *Bot) isBetterThanSkillResult(sk1, sk2 SkillResult) bool {

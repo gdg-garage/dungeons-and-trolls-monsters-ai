@@ -34,6 +34,9 @@ func (sr *SkillResult) Add(other SkillResult) *SkillResult {
 	sr.BuffsHostile += other.BuffsHostile
 	sr.BuffsFriendly += other.BuffsFriendly
 	sr.BuffsSelf += other.BuffsSelf
+	sr.ResistsHostile += other.ResistsHostile
+	sr.ResistsFriendly += other.ResistsFriendly
+	sr.ResistsSelf += other.ResistsSelf
 	sr.MovementSelf += other.MovementSelf
 	sr.Random += other.Random
 	return sr
@@ -96,7 +99,7 @@ func (b *Bot) evaluateSkill(skill swagger.DungeonsandtrollsSkill, target MapObje
 	result.Random = rand.Float32()
 	// Eval movement for self
 	if skill.CasterEffects.Flags.Movement {
-		result.MovementSelf = float32(b.scoreMovementDiff(targetPosition)) / 10
+		result.MovementSelf = float32(b.scoreMovementDiff(targetPosition)) / 7
 	}
 	// Eval ground effect around caster
 	if skill.CasterEffects.Flags.GroundEffect {
