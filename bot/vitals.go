@@ -136,9 +136,13 @@ func (b *Bot) scoreVitalsFor(target *MapObject, skillAttributes *swagger.Dungeon
 }
 
 func (b *Bot) scorePercentageOnACurve(percentage, curve, killingBlowBonus float32) float32 {
+	return b.scorePercentageOnACurveMinMax(percentage, curve, killingBlowBonus, 0, 1)
+}
+
+func (b *Bot) scorePercentageOnACurveMinMax(percentage, curve, killingBlowBonus, min, max float32) float32 {
 	cleanUp := func(x float32) float32 {
 		if math.IsNaN(float64(x)) {
-			x = 0
+			x = 1
 		}
 		if x < 0 {
 			return 0
@@ -179,14 +183,14 @@ func (b *Bot) scoreVitalsFunc(lifePercentage, staminaPercentage, manaPercentage 
 
 func (b *Bot) scoreBuffsFunc(strPercentage, dexPercentage, intPercentage, willPercentage, consPercentage float32) float32 {
 	f := func(percentage float32) float32 {
-		return b.scorePercentageOnACurve(percentage, 25, 0.2)
+		return b.scorePercentageOnACurveMinMax(percentage, 25, 0.2, 0, 4)
 	}
 	return 4*f(strPercentage) + 2*f(dexPercentage) + 2*f(intPercentage) + 1*f(willPercentage) + 1*f(consPercentage)
 }
 
 func (b *Bot) scoreResistFunc(slashPercentage, piercePercentage, firePercentage, poisonPercentage, electricPercentage float32) float32 {
 	f := func(percentage float32) float32 {
-		return b.scorePercentageOnACurve(percentage, 25, 0.2)
+		return b.scorePercentageOnACurveMinMax(percentage, 25, 0.2, 0, 4)
 	}
 	return 2.5*f(slashPercentage) + 4*f(piercePercentage) + 1.5*f(firePercentage) + f(poisonPercentage) + f(electricPercentage)
 }
@@ -194,10 +198,16 @@ func (b *Bot) scoreResistFunc(slashPercentage, piercePercentage, firePercentage,
 func (b *Bot) calculateAttributePercentages(value, maxValue, gain float32) (float32, float32) {
 	percentage := value / maxValue
 	if math.IsNaN(float64(percentage)) {
+		percentage = 1
+	}
+	if math.IsInf(float64(percentage), 0) {
 		percentage = 0
 	}
 	percentageAfter := (value + gain) / maxValue
 	if math.IsNaN(float64(percentageAfter)) {
+		percentageAfter = 1
+	}
+	if math.IsInf(float64(percentageAfter), 0) {
 		percentageAfter = 0
 	}
 	return percentage, percentageAfter
@@ -216,22 +226,68 @@ func (b *Bot) scoreBuffs(target *MapObject, skillAttributes *swagger.Dungeonsand
 	poisonResistGain := b.calculateAttributesValue(*skillAttributes.PoisonResist)
 	electricResistGain := b.calculateAttributesValue(*skillAttributes.ElectricResist)
 
-	strengthPercentage, strengthPercentageAfter := b.calculateAttributePercentages(target.GetAttributes().Strength, target.GetMaxAttributes().Strength, strengthGain)
-	dexterityPercentage, dexterityPercentageAfter := b.calculateAttributePercentages(target.GetAttributes().Dexterity, target.GetMaxAttributes().Dexterity, dexterityGain)
-	intelligencePercentage, intelligencePercentageAfter := b.calculateAttributePercentages(target.GetAttributes().Intelligence, target.GetMaxAttributes().Intelligence, intelligenceGain)
-	willpowerPercentage, willpowerPercentageAfter := b.calculateAttributePercentages(target.GetAttributes().Willpower, target.GetMaxAttributes().Willpower, willpowerGain)
-	constitutionPercentage, constitutionPercentageAfter := b.calculateAttributePercentages(target.GetAttributes().Constitution, target.GetMaxAttributes().Constitution, constitutionGain)
+	strengthPercentage, strengthPercentageAfter := b.calculateAttributePercentages(target.GetAttributes().Strength, 50, strengthGain)
+	dexterityPercentage, dexterityPercentageAfter := b.calculateAttributePercentages(target.GetAttributes().Dexterity, 50, dexterityGain)
+	intelligencePercentage, intelligencePercentageAfter := b.calculateAttributePercentages(target.GetAttributes().Intelligence, 50, intelligenceGain)
+	willpowerPercentage, willpowerPercentageAfter := b.calculateAttributePercentages(target.GetAttributes().Willpower, 50, willpowerGain)
+	constitutionPercentage, constitutionPercentageAfter := b.calculateAttributePercentages(target.GetAttributes().Constitution, 50, constitutionGain)
 
-	slashResistPercentage, slashResistPercentageAfter := b.calculateAttributePercentages(target.GetAttributes().SlashResist, target.GetMaxAttributes().SlashResist, slashResistGain)
-	pierceResistPercentage, pierceResistPercentageAfter := b.calculateAttributePercentages(target.GetAttributes().PierceResist, target.GetMaxAttributes().PierceResist, pierceResistGain)
-	fireResistPercentage, fireResistPercentageAfter := b.calculateAttributePercentages(target.GetAttributes().FireResist, target.GetMaxAttributes().FireResist, fireResistGain)
-	poisonResistPercentage, poisonResistPercentageAfter := b.calculateAttributePercentages(target.GetAttributes().PoisonResist, target.GetMaxAttributes().PoisonResist, poisonResistGain)
-	electricResistPercentage, electricResistPercentageAfter := b.calculateAttributePercentages(target.GetAttributes().ElectricResist, target.GetMaxAttributes().ElectricResist, electricResistGain)
+	slashResistPercentage, slashResistPercentageAfter := b.calculateAttributePercentages(target.GetAttributes().SlashResist, 40, slashResistGain)
+	pierceResistPercentage, pierceResistPercentageAfter := b.calculateAttributePercentages(target.GetAttributes().PierceResist, 40, pierceResistGain)
+	fireResistPercentage, fireResistPercentageAfter := b.calculateAttributePercentages(target.GetAttributes().FireResist, 40, fireResistGain)
+	poisonResistPercentage, poisonResistPercentageAfter := b.calculateAttributePercentages(target.GetAttributes().PoisonResist, 40, poisonResistGain)
+	electricResistPercentage, electricResistPercentageAfter := b.calculateAttributePercentages(target.GetAttributes().ElectricResist, 40, electricResistGain)
 
 	scoreBuffs := b.scoreBuffsFunc(strengthPercentage, dexterityPercentage, intelligencePercentage, willpowerPercentage, constitutionPercentage)
 	scoreBuffsAfter := b.scoreBuffsFunc(strengthPercentageAfter, dexterityPercentageAfter, intelligencePercentageAfter, willpowerPercentageAfter, constitutionPercentageAfter)
 	scoreResists := b.scoreResistFunc(slashResistPercentage, pierceResistPercentage, fireResistPercentage, poisonResistPercentage, electricResistPercentage)
 	scoreResistsAfter := b.scoreResistFunc(slashResistPercentageAfter, pierceResistPercentageAfter, fireResistPercentageAfter, poisonResistPercentageAfter, electricResistPercentageAfter)
 
-	return scoreBuffsAfter - scoreBuffs, scoreResistsAfter - scoreResists
+	scoreBuffsDiff := scoreBuffsAfter - scoreBuffs
+	scoreResistsDiff := scoreResistsAfter - scoreResists
+	b.Logger.Infow("Skill buffs score calculated",
+		"skillName", skill.Name,
+		"strengthGain", strengthGain,
+		"dexterityGain", dexterityGain,
+		"intelligenceGain", intelligenceGain,
+		"willpowerGain", willpowerGain,
+		"constitutionGain", constitutionGain,
+		"slashResistGain", slashResistGain,
+		"pierceResistGain", pierceResistGain,
+		"fireResistGain", fireResistGain,
+		"poisonResistGain", poisonResistGain,
+		"electricResistGain", electricResistGain,
+
+		"strengthPercentage", strengthPercentage,
+		"dexterityPercentage", dexterityPercentage,
+		"intelligencePercentage", intelligencePercentage,
+		"willpowerPercentage", willpowerPercentage,
+		"constitutionPercentage", constitutionPercentage,
+		"slashResistPercentage", slashResistPercentage,
+		"pierceResistPercentage", pierceResistPercentage,
+		"fireResistPercentage", fireResistPercentage,
+		"poisonResistPercentage", poisonResistPercentage,
+		"electricResistPercentage", electricResistPercentage,
+
+		"strengthPercentageAfter", strengthPercentageAfter,
+		"dexterityPercentageAfter", dexterityPercentageAfter,
+		"intelligencePercentageAfter", intelligencePercentageAfter,
+		"willpowerPercentageAfter", willpowerPercentageAfter,
+		"constitutionPercentageAfter", constitutionPercentageAfter,
+		"slashResistPercentageAfter", slashResistPercentageAfter,
+		"pierceResistPercentageAfter", pierceResistPercentageAfter,
+		"fireResistPercentageAfter", fireResistPercentageAfter,
+		"poisonResistPercentageAfter", poisonResistPercentageAfter,
+		"electricResistPercentageAfter", electricResistPercentageAfter,
+
+		"scoresBuffs", scoreBuffs,
+		"scoresBuffsAfter", scoreBuffsAfter,
+
+		"scoresResists", scoreResists,
+		"scoresResistsAfter", scoreResistsAfter,
+
+		"scoresBuffsDiff", scoreBuffsDiff,
+		"scoresResistsDiff", scoreResistsDiff,
+	)
+	return scoreBuffsDiff, scoreResistsDiff
 }

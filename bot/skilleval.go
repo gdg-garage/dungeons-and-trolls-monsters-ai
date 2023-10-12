@@ -99,7 +99,7 @@ func (b *Bot) evaluateSkill(skill swagger.DungeonsandtrollsSkill, target MapObje
 	result.Random = rand.Float32()
 	// Eval movement for self
 	if skill.CasterEffects.Flags.Movement {
-		result.MovementSelf = float32(b.scoreMovementDiff(targetPosition)) / 7
+		result.MovementSelf = float32(b.scoreMovementDiff(targetPosition)) / 4
 	}
 	// Eval ground effect around caster
 	if skill.CasterEffects.Flags.GroundEffect {
@@ -187,7 +187,7 @@ func (b *Bot) evalEffectFor(target *MapObject, effect *swagger.Dungeonsandtrolls
 	}
 	vitalsSummons := float32(0)
 	if effect.Summons != nil && len(effect.Summons) > 0 {
-		vitalsSummons += 0.35
+		vitalsSummons += 0.5
 	}
 	// XXX: Maybe make bigger targets worth more
 	//      Not relevant because players are on the same level
@@ -347,7 +347,7 @@ func (b *Bot) scoreMovement(position *swagger.DungeonsandtrollsPosition) float32
 	}
 	scoreTargetPosition := 20 / float32(distances.DistanceToTargetPosition+20)
 
-	scoreDistToSelf := float32(distances.DistanceToSelf) / 10
+	scoreDistToSelf := float32(distances.DistanceToSelf) / 20
 	scoreNumHostiles := float32(distances.NumCloseHostiles) / 10
 	scoreNumFriendly := float32(distances.NumCloseFriendly) / 20
 
@@ -369,10 +369,10 @@ func (b *Bot) scoreMovement(position *swagger.DungeonsandtrollsPosition) float32
 	// TODO: use distances and vitals
 	result := b.Config.Restlessness*scoreDistToSelf +
 		scoreClosestHostile*6 +
-		scoreClosestFriendly*2 +
-		scoreTargetPosition*20 +
+		scoreClosestFriendly*1.5 +
+		scoreTargetPosition*5 +
 		vitalsCoef*scoreNumHostiles*2 +
-		scoreNumFriendly*1 +
+		scoreNumFriendly*2 +
 		scorePosition
 
 	b.Logger.Infow("Evaluated movement score for self",
@@ -380,10 +380,12 @@ func (b *Bot) scoreMovement(position *swagger.DungeonsandtrollsPosition) float32
 		"distances", distances,
 		"myPosition", b.Details.Position,
 		"position", position,
+		"targetPosition", b.BotState.TargetPosition,
 		"scoreClosestHostile", scoreClosestHostile,
 		"scoreClosestFriendly", scoreClosestFriendly,
 		"scoreDistToSelf", scoreDistToSelf,
 		"scoreTargetPosition", scoreTargetPosition,
+		"distanceToTargetPosition", distances.DistanceToTargetPosition,
 		"scoreNumHostiles", scoreNumHostiles,
 		"scoreNumFriendly", scoreNumFriendly,
 		"vitalsSelf", vitalsSelf,
@@ -405,6 +407,7 @@ type Distances struct {
 	DistanceToClosestFriendly int32
 	DistanceToSelf            int32
 	DistanceToTargetPosition  int32
+	// DistanceToPreviousPosition int32
 
 	NumCloseHostiles int
 	NumCloseFriendly int
@@ -419,6 +422,14 @@ func (b *Bot) calculateDistancesForPosition(position *swagger.DungeonsandtrollsP
 		DistanceToClosestFriendly: math.MaxInt32 - 1,
 		DistanceToTargetPosition:  math.MaxInt32 - 1,
 		NumCloseFriendly:          1, // self
+	}
+	var tileInfo MapCellExt
+	found := false
+	if b.BotState.TargetPosition != nil {
+		tileInfo, found = b.BotState.MapExtended[*b.BotState.TargetPosition]
+	}
+	if found && tileInfo.lineOfSight {
+		dists.DistanceToTargetPosition = manhattanDistance(*position, *b.BotState.TargetPosition)
 	}
 	for _, obj := range b.Details.CurrentMap.Objects {
 		if !b.BotState.MapExtended[*obj.Position].lineOfSight {
