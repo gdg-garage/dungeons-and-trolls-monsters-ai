@@ -85,9 +85,9 @@ func (b *Bot) scoreVitalsFor(target *MapObject, skillAttributes *swagger.Dungeon
 		"targetMaxAttrs", targetMaxAttrs,
 	)
 
-	skillLifeGain := float32(calculateAttributesValue(*targetAttrs, *skillAttributes.Life)) + extraSign*extraAttributes.Life
-	skillStaminaGain := float32(calculateAttributesValue(*targetAttrs, *skillAttributes.Stamina)) + extraSign*extraAttributes.Stamina
-	skillManaGain := float32(calculateAttributesValue(*targetAttrs, *skillAttributes.Mana)) + extraSign*extraAttributes.Mana
+	skillLifeGain := float32(b.calculateAttributesValue(*skillAttributes.Life)) + extraSign*extraAttributes.Life
+	skillStaminaGain := float32(b.calculateAttributesValue(*skillAttributes.Stamina)) + extraSign*extraAttributes.Stamina
+	skillManaGain := float32(b.calculateAttributesValue(*skillAttributes.Mana)) + extraSign*extraAttributes.Mana
 
 	// Apply duration
 	// XXX: This might make over time skills too significant

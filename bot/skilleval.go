@@ -99,7 +99,7 @@ func (b *Bot) evaluateSkill(skill swagger.DungeonsandtrollsSkill, target MapObje
 	result.Random = rand.Float32()
 	// Eval movement for self
 	if skill.CasterEffects.Flags.Movement {
-		result.MovementSelf = float32(b.scoreMovementDiff(targetPosition)) / 4
+		result.MovementSelf = float32(b.scoreMovementDiff(targetPosition)) / 3
 	}
 	// Eval ground effect around caster
 	if skill.CasterEffects.Flags.GroundEffect {
@@ -179,15 +179,22 @@ func (b *Bot) evalEffectFor(target *MapObject, effect *swagger.Dungeonsandtrolls
 		} else if b.IsHostile(*target) {
 			vitalsScore -= 0.3
 		} else {
-			vitalsScore -= 0.2
+			vitalsScore -= 0.1
+		}
+	}
+	if effect.Flags.Movement {
+		if b.IsHostile(*target) {
+			vitalsScore -= 0.3
+		} else if b.IsFriendly(*target) {
+			vitalsScore += 0.15
 		}
 	}
 	if effect.Flags.Knockback {
-		vitalsScore -= 0.1
+		vitalsScore -= 0.2
 	}
 	vitalsSummons := float32(0)
 	if effect.Summons != nil && len(effect.Summons) > 0 {
-		vitalsSummons += 0.5
+		vitalsSummons += 0.7
 	}
 	// XXX: Maybe make bigger targets worth more
 	//      Not relevant because players are on the same level
@@ -347,7 +354,7 @@ func (b *Bot) scoreMovement(position *swagger.DungeonsandtrollsPosition) float32
 	}
 	scoreTargetPosition := 20 / float32(distances.DistanceToTargetPosition+20)
 
-	scoreDistToSelf := float32(distances.DistanceToSelf) / 20
+	scoreDistToSelf := float32(distances.DistanceToSelf) / 40
 	scoreNumHostiles := float32(distances.NumCloseHostiles) / 10
 	scoreNumFriendly := float32(distances.NumCloseFriendly) / 20
 
@@ -362,6 +369,9 @@ func (b *Bot) scoreMovement(position *swagger.DungeonsandtrollsPosition) float32
 				scorePosition -= 0.12
 			}
 		}
+		for _, effect := range tileInfo.mapObjects.Effects {
+			scorePosition += b.evalGroundEffect(&effect)
+		}
 	}
 
 	vitalsSelf := b.getCurrentVitals()
@@ -369,10 +379,10 @@ func (b *Bot) scoreMovement(position *swagger.DungeonsandtrollsPosition) float32
 	// TODO: use distances and vitals
 	result := b.Config.Restlessness*scoreDistToSelf +
 		scoreClosestHostile*6 +
-		scoreClosestFriendly*1.5 +
-		scoreTargetPosition*5 +
-		vitalsCoef*scoreNumHostiles*2 +
-		scoreNumFriendly*2 +
+		scoreClosestFriendly*3.5 +
+		scoreTargetPosition*3 +
+		vitalsCoef*scoreNumHostiles*3 +
+		scoreNumFriendly*4 +
 		scorePosition
 
 	b.Logger.Infow("Evaluated movement score for self",
@@ -392,6 +402,43 @@ func (b *Bot) scoreMovement(position *swagger.DungeonsandtrollsPosition) float32
 		"vitalsCoef", vitalsCoef,
 	)
 	return result
+}
+
+func (b *Bot) evalGroundEffect(effect *swagger.DungeonsandtrollsEffect) float32 {
+	damageAttrs := swagger.DungeonsandtrollsAttributes{
+		Life: effect.DamageAmount,
+	}
+	wrappedAttrs := swagger.DungeonsandtrollsSkillAttributes{
+		Life:    &swagger.DungeonsandtrollsAttributes{Constant: effect.Effects.Life},
+		Stamina: &swagger.DungeonsandtrollsAttributes{Constant: effect.Effects.Stamina},
+		Mana:    &swagger.DungeonsandtrollsAttributes{Constant: effect.Effects.Mana},
+
+		Strength:     &swagger.DungeonsandtrollsAttributes{Constant: effect.Effects.Strength},
+		Dexterity:    &swagger.DungeonsandtrollsAttributes{Constant: effect.Effects.Dexterity},
+		Intelligence: &swagger.DungeonsandtrollsAttributes{Constant: effect.Effects.Intelligence},
+		Willpower:    &swagger.DungeonsandtrollsAttributes{Constant: effect.Effects.Willpower},
+		Constitution: &swagger.DungeonsandtrollsAttributes{Constant: effect.Effects.Constitution},
+
+		SlashResist:    &swagger.DungeonsandtrollsAttributes{Constant: effect.Effects.SlashResist},
+		PierceResist:   &swagger.DungeonsandtrollsAttributes{Constant: effect.Effects.PierceResist},
+		FireResist:     &swagger.DungeonsandtrollsAttributes{Constant: effect.Effects.FireResist},
+		PoisonResist:   &swagger.DungeonsandtrollsAttributes{Constant: effect.Effects.PoisonResist},
+		ElectricResist: &swagger.DungeonsandtrollsAttributes{Constant: effect.Effects.ElectricResist},
+	}
+	skill := swagger.DungeonsandtrollsSkill{
+		Name:     "<GROUND EFFECT>",
+		Duration: &swagger.DungeonsandtrollsAttributes{Constant: float32(effect.Duration)},
+	}
+	vitals, buffs, resists := b.scoreVitalsFor(&b.BotState.Self, &wrappedAttrs, &damageAttrs, -1, &skill)
+	total := vitals + buffs + resists
+	b.Logger.Infow("Evaluated ground effect",
+		"effect", effect,
+		"vitalsScore", vitals,
+		"buffsScore", buffs,
+		"resistsScore", resists,
+		"totalScore", total,
+	)
+	return total
 }
 
 func (b *Bot) getCurrentVitals() float32 {
