@@ -257,7 +257,7 @@ func (b *Bot) findTargetsInRangeAsMap(position swagger.DungeonsandtrollsPosition
 			pos := makePosition(x, y)
 			distance := manhattanDistance(pos, position)
 			tileInfo, found := b.BotState.MapExtended[pos]
-			if !found || distance > dist {
+			if !found || distance > dist || !tileInfo.lineOfSight {
 				continue
 			}
 			extractedTargets := extractTargets(tileInfo.mapObjects)
@@ -338,6 +338,9 @@ func (b *Bot) scoreMovement(position *swagger.DungeonsandtrollsPosition) float32
 	if distances.NumCloseFriendly > 10 {
 		distances.NumCloseFriendly = 10
 	}
+	if distances.DistanceToSpawn > 10 {
+		distances.DistanceToSpawn = 10
+	}
 	scoreClosestHostile := 10 / float32(distances.DistanceToClosestHostile+10)
 	if distances.DistanceToClosestHostile < 2 {
 		scoreClosestHostile -= 0.08
@@ -355,8 +358,9 @@ func (b *Bot) scoreMovement(position *swagger.DungeonsandtrollsPosition) float32
 	scoreTargetPosition := 20 / float32(distances.DistanceToTargetPosition+20)
 
 	scoreDistToSelf := float32(distances.DistanceToSelf) / 40
+	scoreDistToSpawn := float32(distances.DistanceToSpawn) / 10
 	scoreNumHostiles := float32(distances.NumCloseHostiles) / 10
-	scoreNumFriendly := float32(distances.NumCloseFriendly) / 20
+	scoreNumFriendly := float32(distances.NumCloseFriendly) / 10
 
 	scorePosition := float32(0)
 	tileInfo, found := b.BotState.MapExtended[*position]
@@ -378,8 +382,9 @@ func (b *Bot) scoreMovement(position *swagger.DungeonsandtrollsPosition) float32
 	vitalsCoef := (vitalsSelf - 4) / 5 // assuming 0-10
 	// TODO: use distances and vitals
 	result := b.Config.Restlessness*scoreDistToSelf +
+		-scoreDistToSpawn*4.5 +
 		scoreClosestHostile*6 +
-		scoreClosestFriendly*3.5 +
+		scoreClosestFriendly*2 +
 		scoreTargetPosition*3 +
 		vitalsCoef*scoreNumHostiles*3 +
 		scoreNumFriendly*4 +
@@ -454,7 +459,7 @@ type Distances struct {
 	DistanceToClosestFriendly int32
 	DistanceToSelf            int32
 	DistanceToTargetPosition  int32
-	// DistanceToPreviousPosition int32
+	DistanceToSpawn           int32
 
 	NumCloseHostiles int
 	NumCloseFriendly int
@@ -468,6 +473,7 @@ func (b *Bot) calculateDistancesForPosition(position *swagger.DungeonsandtrollsP
 		DistanceToClosestHostile:  math.MaxInt32 - 1,
 		DistanceToClosestFriendly: math.MaxInt32 - 1,
 		DistanceToTargetPosition:  math.MaxInt32 - 1,
+		DistanceToSpawn:           math.MaxInt32 - 1,
 		NumCloseFriendly:          1, // self
 	}
 	var tileInfo MapCellExt
@@ -479,6 +485,12 @@ func (b *Bot) calculateDistancesForPosition(position *swagger.DungeonsandtrollsP
 		dists.DistanceToTargetPosition = manhattanDistance(*position, *b.BotState.TargetPosition)
 	}
 	for _, obj := range b.Details.CurrentMap.Objects {
+		if obj.IsSpawn {
+			tileInfo, found := b.BotState.MapExtended[*obj.Position]
+			if found {
+				dists.DistanceToSpawn = int32(tileInfo.distance)
+			}
+		}
 		if !b.BotState.MapExtended[*obj.Position].lineOfSight {
 			// Skip position without line of sight
 			continue
