@@ -12,8 +12,8 @@ type Config struct {
 func NewConfig(algorithm string) Config {
 	return Config{
 		Aggression:   4,
-		Preservation: 1.5,
-		Support:      0.5,
+		Preservation: 2,
+		Support:      1.5,
 
 		Restlessness: 1.2,
 		Randomness:   0.03,
